@@ -10,5 +10,6 @@ export const ENV = {
     TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
     JWT_SECRET: process.env.JWT_SECRET,
     REFRESH_TOKEN: process.env.REFRESH_TOKEN,
-    JWT_EXPIRATION: process.env.JWT_EXPIRATION
+    JWT_EXPIRATION: process.env.JWT_EXPIRATION,
+    API_KEY: process.env.API_KEY
 }
