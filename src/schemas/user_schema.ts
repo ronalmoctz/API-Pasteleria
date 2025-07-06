@@ -26,7 +26,7 @@ export const loginSchema = z.object({
 
 
 export const publicUserSchema = z.object({
-    id: z.string(),
+    id: z.number(),
     first_name: z.string(),
     last_name: z.string(),
     email: z.string(),

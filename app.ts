@@ -12,7 +12,7 @@ import { logger } from '@/utils/logger';
 
 // Import routes
 import userRoutes from '@/routes/user_routes';
-
+import categoryRoutes from '@/routes/categories_routes'
 
 const app = express();
 
@@ -35,6 +35,7 @@ app.get('/', (_req, res) => {
 });
 
 app.use('/', userRoutes, apiLimiter);
+app.use('/api/v1', categoryRoutes, apiLimiter)
 
 async function bootstrap() {
     const isConnected = await checkTursoConnection();

@@ -79,7 +79,7 @@ export function extractTokenFromHeader(authHeader: string | undefined): string |
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return null;
     }
-    return authHeader.substring(7); // Remover "Bearer "
+    return authHeader.substring(7);
 }
 
 // Middleware para Express (opcional)
@@ -92,7 +92,7 @@ export function authenticateToken(req: any, res: any, next: any) {
 
     verifyToken(token)
         .then(payload => {
-            req.user = payload; // Agregar datos del usuario al request
+            req.user = payload;
             next();
         })
         .catch(err => {
