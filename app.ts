@@ -6,7 +6,7 @@ import { ENV } from '@/config/env';
 import { checkTursoConnection } from '@/config/tursoClient';
 import { setupSwagger } from '@/config/swagger';
 import { errorHandler } from '@/middlewares/error_handler';
-import rateLimit from 'express-rate-limit';
+import { apiLimiter } from '@/middlewares/rate_limit';
 import { logger } from '@/utils/logger';
 
 
@@ -22,7 +22,6 @@ app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
 setupSwagger(app);
-app.use(rateLimit())
 // Middleware para manejar errores
 app.use(errorHandler);
 
@@ -35,7 +34,7 @@ app.get('/', (_req, res) => {
     });
 });
 
-app.use('/', userRoutes);
+app.use('/', userRoutes, apiLimiter);
 
 async function bootstrap() {
     const isConnected = await checkTursoConnection();
