@@ -6,13 +6,13 @@ import { ENV } from '@/config/env';
 import { checkTursoConnection } from '@/config/tursoClient';
 import { setupSwagger } from '@/config/swagger';
 import { errorHandler } from '@/middlewares/error_handler';
-import { apiLimiter } from '@/middlewares/rate_limit';
 import { logger } from '@/utils/logger';
 
 
 // Import routes
 import userRoutes from '@/routes/user_routes';
 import categoryRoutes from '@/routes/categories_routes'
+import ingredientRoutes from '@/routes/ingredients_routes'
 
 const app = express();
 
@@ -34,8 +34,9 @@ app.get('/', (_req, res) => {
     });
 });
 
-app.use('/', userRoutes, apiLimiter);
-app.use('/api/v1', categoryRoutes, apiLimiter)
+app.use('/', userRoutes);
+app.use('/api/v1', categoryRoutes)
+app.use('/api/v1', ingredientRoutes)
 
 async function bootstrap() {
     const isConnected = await checkTursoConnection();

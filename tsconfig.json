@@ -1,10 +1,8 @@
 {
   "compilerOptions": {
-    // Enable latest features
     "lib": ["ESNext", "DOM"],
     "target": "ESNext",
     "module": "ESNext",
-    "moduleDetection": "force",
     "jsx": "react-jsx",
     "allowJs": true,
 
@@ -22,18 +20,18 @@
       "@routes/*": ["src/routes/*"]
     },
 
-    // Bundler mode
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": false,
     "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
     "noEmit": true,
 
-    // Best practices
     "strict": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
 
-    // Some stricter flags (disabled by default)
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false

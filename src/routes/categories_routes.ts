@@ -6,8 +6,10 @@ import {
     updateCategory,
     deleteCategory
 } from '@/controllers/categories_controller';
+import { apiLimiter } from '@/middlewares/rate_limit';
 
 const router = Router();
+router.use(apiLimiter);
 
 /**
  * @openapi
