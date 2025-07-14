@@ -7,7 +7,14 @@ export const productSchema = z.object({
     sku: z.string().nullable(),
     price: z.number().min(0),
     image_url: z.string().url().nullable(),
-    is_available: z.union([z.literal(0), z.literal(1)]).transform(val => !!val),
+    is_available: z.union([
+        z.boolean(),
+        z.literal(0),
+        z.literal(1)
+    ]).transform(val => {
+        if (typeof val === 'boolean') return val;
+        return !!val;
+    }),
     cost_price: z.number().default(0),
     stock_quantity: z.number().min(0),
     category_id: z.number(),
