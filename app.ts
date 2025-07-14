@@ -8,6 +8,9 @@ import { setupSwagger } from '@/config/swagger';
 import { errorHandler } from '@/middlewares/error_handler';
 import { logger } from '@/utils/logger';
 
+//GraphQL import
+import { setupGraphQl } from '@/graphql';
+
 
 // Import routes
 import userRoutes from '@/routes/user_routes';
@@ -22,8 +25,7 @@ app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
 setupSwagger(app);
-// Middleware para manejar errores
-app.use(errorHandler);
+
 
 
 app.get('/', (_req, res) => {
@@ -37,6 +39,10 @@ app.get('/', (_req, res) => {
 app.use('/', userRoutes);
 app.use('/api/v1', categoryRoutes)
 app.use('/api/v1', ingredientRoutes)
+setupGraphQl(app)
+
+// Middleware para manejar errores
+app.use(errorHandler);
 
 async function bootstrap() {
     const isConnected = await checkTursoConnection();
@@ -48,6 +54,7 @@ async function bootstrap() {
     app.listen(ENV.SERVER_PORT, () => {
         logger.info(`🚀 Bakery API is running on http://localhost:${ENV.SERVER_PORT}`);
         logger.info(`📘 Scalar Reference at http://localhost:${ENV.SERVER_PORT}/reference`)
+        logger.info(`🧠 GraphQL running on http://localhost:${ENV.SERVER_PORT}/graphql`)
     });
 }
 
