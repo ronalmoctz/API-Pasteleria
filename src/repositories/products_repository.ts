@@ -10,8 +10,8 @@ const PRODUCTS_CACHE_KEY = 'products:all';
 export class ProductRepository {
     async create(data: CreateProduct): Promise<Product> {
         const result = await turso.execute({
-            sql: `INSERT INTO products (name, description, sku, price, image_url, is_available, cost_price, category_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+            sql: `INSERT INTO products (name, description, sku, price, image_url, is_available, cost_price, stock_quantity, category_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
             args: [
                 data.name,
                 data.description ?? null,
@@ -20,6 +20,7 @@ export class ProductRepository {
                 data.image_url ?? null,
                 data.is_available ?? true,
                 data.cost_price ?? 0,
+                data.stock_quantity ?? 0,
                 data.category_id
             ]
         });
@@ -51,9 +52,10 @@ export class ProductRepository {
         const products: Product[] = [];
 
         for (const row of result.rows) {
+            console.log('🧪 Producto desde BD:', row); // 👈 aquí
             const parsed = productSchema.safeParse(row);
             if (!parsed.success) {
-                logger.error('Producto inválido en BD', { error: parsed.error });
+                console.error('❌ Producto inválido:', parsed.error.format()); // 👈 muestra qué campo falla
                 throw new Error('Producto inválido desde BD');
             }
             products.push(parsed.data);
@@ -86,7 +88,7 @@ export class ProductRepository {
         if (!existing) return null;
 
         const result = await turso.execute({
-            sql: `UPDATE products SET name = ?, description = ?, sku = ?, price = ?, image_url = ?, is_available = ?, cost_price = ?, category_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *`,
+            sql: `UPDATE products SET name = ?, description = ?, sku = ?, price = ?, image_url = ?, is_available = ?, cost_price = ?, stock_quantity = ?, category_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *`,
             args: [
                 data.name ?? existing.name,
                 data.description ?? existing.description,
@@ -95,6 +97,7 @@ export class ProductRepository {
                 data.image_url ?? existing.image_url,
                 data.is_available ?? existing.is_available,
                 data.cost_price ?? existing.cost_price,
+                data.stock_quantity ?? existing.stock_quantity,
                 data.category_id ?? existing.category_id,
                 id
             ]

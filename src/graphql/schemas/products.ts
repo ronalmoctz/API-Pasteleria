@@ -8,6 +8,7 @@ export const productsTypeDefs = /* GraphQL */ `
         image_url: String
         is_available: Boolean!
         cost_price: Float!
+        stock_quantity: Float!
         category_id: Int!
         created_at: String!
         updated_at: String!
@@ -26,6 +27,7 @@ export const productsTypeDefs = /* GraphQL */ `
         image_url: String
         is_available: Boolean = true
         cost_price: Float = 0.0
+        stock_quantity: Float = 0.0
         category_id: Int!
     }
 
@@ -37,6 +39,7 @@ export const productsTypeDefs = /* GraphQL */ `
         image_url: String
         is_available: Boolean
         cost_price: Float
+        stock_quantity: Float
         category_id: Int
     }
 

@@ -1,4 +1,3 @@
-// src/schemas/products_schema.ts
 import { z } from 'zod';
 
 export const productSchema = z.object({
@@ -8,11 +7,12 @@ export const productSchema = z.object({
     sku: z.string().nullable(),
     price: z.number().min(0),
     image_url: z.string().url().nullable(),
-    is_available: z.boolean().default(true),
+    is_available: z.union([z.literal(0), z.literal(1)]).transform(val => !!val),
     cost_price: z.number().default(0),
+    stock_quantity: z.number().min(0),
     category_id: z.number(),
-    created_at: z.string(),
-    updated_at: z.string()
+    created_at: z.string().optional(),
+    updated_at: z.string().optional()
 });
 
 export const createProductSchema = productSchema.omit({ id: true, created_at: true, updated_at: true });

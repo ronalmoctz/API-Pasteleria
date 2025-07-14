@@ -21,6 +21,7 @@ export const productsResolvers = {
         createProduct: async (_: unknown, { input }: { input: CreateProduct }) => {
             const parsed = createProductSchema.safeParse(input)
             if (!parsed.success) {
+                console.error('❌ Error en Zod al crear producto:', parsed.error.format());
                 throw new Error('Datos inválidos para crear producto')
             }
             return await repo.create(parsed.data)
