@@ -5,112 +5,315 @@ import type { Ingredient } from "@/interfaces/ingredient_interfaces";
 import type { CreateIngredient, UpdateIngredient } from "@/schemas/ingredients_schema";
 import { ingredientSchema } from "@/schemas/ingredients_schema";
 
-const INGREDIENT_CACHE_KEY = "ingredients:all";
+// Cache configuration
+const CACHE_KEYS = {
+    ALL_INGREDIENTS: "ingredients:all",
+    INGREDIENT_BY_ID: (id: number) => `ingredients:id:${id}`,
+} as const;
+
+const CACHE_TTL = {
+    INGREDIENTS: 300, // 5 minutes
+    SINGLE_INGREDIENT: 600, // 10 minutes
+} as const;
+
+// Custom error classes
+class ValidationError extends Error {
+    constructor(message: string, public details?: any) {
+        super(message);
+        this.name = 'ValidationError';
+    }
+}
+
+class DatabaseError extends Error {
+    constructor(message: string, public details?: any) {
+        super(message);
+        this.name = 'DatabaseError';
+    }
+}
 
 export class IngredientRepository {
-    async create(data: CreateIngredient): Promise<Ingredient> {
-        const result = await turso.execute({
+    /**
+     * Validates ingredient data using Zod schema
+     */
+    private validateIngredientData(rawData: any, context: string): Ingredient {
+        const validationResult = ingredientSchema.safeParse(rawData);
+
+        if (!validationResult.success) {
+            const errorMessage = `Invalid ingredient data during ${context}`;
+            logger.error(errorMessage, {
+                error: validationResult.error,
+                rawData,
+                context
+            });
+            throw new ValidationError(errorMessage, validationResult.error);
+        }
+
+        return validationResult.data;
+    }
+
+    /**
+     * Invalidates all ingredient-related cache entries
+     */
+    private invalidateIngredientCache(): void {
+        cache.del(CACHE_KEYS.ALL_INGREDIENTS);
+        logger.debug("Ingredient cache invalidated");
+    }
+
+    /**
+     * Invalidates specific ingredient cache entry
+     */
+    private invalidateSingleIngredientCache(ingredientId: number): void {
+        cache.del(CACHE_KEYS.INGREDIENT_BY_ID(ingredientId));
+        logger.debug("Single ingredient cache invalidated", { ingredientId });
+    }
+
+    /**
+     * Executes database query with error handling
+     */
+    private async executeDatabaseQuery(query: { sql: string; args?: any[] }, operation: string) {
+        try {
+            return await turso.execute(query);
+        } catch (databaseError) {
+            const errorMessage = `Database operation failed: ${operation}`;
+            logger.error(errorMessage, { error: databaseError, query });
+            throw new DatabaseError(errorMessage, databaseError);
+        }
+    }
+
+    /**
+     * Creates a new ingredient
+     */
+    async create(ingredientData: CreateIngredient): Promise<Ingredient> {
+        const insertQuery = {
             sql: `INSERT INTO ingredients (name, stock_quantity, unit) VALUES (?, ?, ?) RETURNING *`,
-            args: [data.name, data.stock_quantity, data.unit],
+            args: [ingredientData.name, ingredientData.stock_quantity, ingredientData.unit],
+        };
+
+        const queryResult = await this.executeDatabaseQuery(insertQuery, "create ingredient");
+        const createdIngredientRow = queryResult.rows[0];
+
+        if (!createdIngredientRow) {
+            const errorMessage = "No data returned after ingredient creation";
+            logger.error(errorMessage, { ingredientData });
+            throw new DatabaseError(errorMessage);
+        }
+
+        const validatedIngredient = this.validateIngredientData(
+            createdIngredientRow,
+            "ingredient creation"
+        );
+
+        // Invalidate cache after successful creation
+        this.invalidateIngredientCache();
+
+        logger.info("Ingredient created successfully", {
+            ingredientId: validatedIngredient.id,
+            name: validatedIngredient.name
         });
 
-        const row = result.rows[0];
-        if (!row) {
-            logger.error("Error al crear el ingrediente", { data });
-            throw new Error("Error al crear el ingrediente");
-        }
-
-        const parseResult = ingredientSchema.safeParse(row);
-        if (!parseResult.success) {
-            logger.error("El ingrediente creado no cumple con el esquema", { error: parseResult.error });
-            throw new Error("Datos de ingrediente no válidos desde la base de datos");
-        }
-
-        cache.del(INGREDIENT_CACHE_KEY);
-        return parseResult.data;
+        return validatedIngredient;
     }
 
+    /**
+     * Retrieves all ingredients with caching
+     */
     async findAll(): Promise<Ingredient[]> {
-        const cached = cache.get<Ingredient[]>(INGREDIENT_CACHE_KEY);
-        if (cached) {
-            logger.info("Obteniendo ingredientes desde la caché");
-            return cached;
+        // Check cache first
+        const cachedIngredients = cache.get<Ingredient[]>(CACHE_KEYS.ALL_INGREDIENTS);
+        if (cachedIngredients) {
+            logger.debug("Ingredients retrieved from cache");
+            return cachedIngredients;
         }
 
-        const result = await turso.execute(`SELECT * FROM ingredients`);
-        const ingredients: Ingredient[] = [];
+        // Query database
+        const selectQuery = { sql: `SELECT * FROM ingredients ORDER BY name` };
+        const queryResult = await this.executeDatabaseQuery(selectQuery, "fetch all ingredients");
 
-        for (const row of result.rows) {
-            const parsed = ingredientSchema.safeParse(row);
-            if (!parsed.success) {
-                logger.error("Fila inválida en la tabla de ingredientes", { error: parsed.error });
-                throw new Error("Error al validar un ingrediente");
+        const validatedIngredients: Ingredient[] = [];
+
+        for (const ingredientRow of queryResult.rows) {
+            try {
+                const validatedIngredient = this.validateIngredientData(
+                    ingredientRow,
+                    "bulk ingredient retrieval"
+                );
+                validatedIngredients.push(validatedIngredient);
+            } catch (validationError) {
+                logger.warn("Skipping invalid ingredient row", {
+                    error: validationError,
+                    row: ingredientRow
+                });
+                // Continue processing other rows instead of throwing
             }
-            ingredients.push(parsed.data);
         }
 
-        cache.set(INGREDIENT_CACHE_KEY, ingredients);
-        logger.info("Obteniendo ingredientes desde la base de datos");
-        return ingredients;
+        // Cache the results
+        cache.set(CACHE_KEYS.ALL_INGREDIENTS, validatedIngredients, CACHE_TTL.INGREDIENTS);
+
+        logger.info("Ingredients retrieved from database", {
+            count: validatedIngredients.length
+        });
+
+        return validatedIngredients;
     }
 
-    async findById(id: number): Promise<Ingredient | null> {
-        const result = await turso.execute({
+    /**
+     * Finds ingredient by ID with caching
+     */
+    async findById(ingredientId: number): Promise<Ingredient | null> {
+        const cacheKey = CACHE_KEYS.INGREDIENT_BY_ID(ingredientId);
+
+        // Check cache first
+        const cachedIngredient = cache.get<Ingredient>(cacheKey);
+        if (cachedIngredient) {
+            logger.debug("Ingredient retrieved from cache", { ingredientId });
+            return cachedIngredient;
+        }
+
+        // Query database
+        const selectQuery = {
             sql: `SELECT * FROM ingredients WHERE id = ?`,
-            args: [id],
-        });
+            args: [ingredientId],
+        };
 
-        const row = result.rows[0];
-        if (!row) return null;
+        const queryResult = await this.executeDatabaseQuery(selectQuery, "find ingredient by ID");
+        const ingredientRow = queryResult.rows[0];
 
-        const parsed = ingredientSchema.safeParse(row);
-        if (!parsed.success) {
-            logger.error("Ingrediente no válido encontrado por ID", { error: parsed.error });
-            throw new Error("Ingrediente inválido al buscar por ID");
+        if (!ingredientRow) {
+            logger.debug("Ingredient not found", { ingredientId });
+            return null;
         }
 
-        return parsed.data;
+        const validatedIngredient = this.validateIngredientData(
+            ingredientRow,
+            `ingredient retrieval by ID: ${ingredientId}`
+        );
+
+        // Cache the result
+        cache.set(cacheKey, validatedIngredient, CACHE_TTL.SINGLE_INGREDIENT);
+
+        logger.debug("Ingredient retrieved from database", { ingredientId });
+        return validatedIngredient;
     }
 
-    async update(id: number, data: UpdateIngredient): Promise<Ingredient | null> {
-        const existing = await this.findById(id);
-        if (!existing) return null;
+    /**
+     * Updates an existing ingredient
+     */
+    async update(ingredientId: number, updateData: UpdateIngredient): Promise<Ingredient | null> {
+        const existingIngredient = await this.findById(ingredientId);
+        if (!existingIngredient) {
+            logger.debug("Ingredient not found for update", { ingredientId });
+            return null;
+        }
 
-        const updatedName = data.name ?? existing.name;
-        const updatedQty = data.stock_quantity ?? existing.stock_quantity;
-        const updatedUnit = data.unit ?? existing.unit;
+        // Merge existing data with updates
+        const updatedIngredientData = {
+            name: updateData.name ?? existingIngredient.name,
+            stock_quantity: updateData.stock_quantity ?? existingIngredient.stock_quantity,
+            unit: updateData.unit ?? existingIngredient.unit,
+        };
 
-        const result = await turso.execute({
+        const updateQuery = {
             sql: `UPDATE ingredients SET name = ?, stock_quantity = ?, unit = ? WHERE id = ? RETURNING *`,
-            args: [updatedName, updatedQty, updatedUnit, id],
-        });
+            args: [
+                updatedIngredientData.name,
+                updatedIngredientData.stock_quantity,
+                updatedIngredientData.unit,
+                ingredientId
+            ],
+        };
 
-        const row = result.rows[0];
-        if (!row) return null;
+        const queryResult = await this.executeDatabaseQuery(updateQuery, "update ingredient");
+        const updatedIngredientRow = queryResult.rows[0];
 
-        const parsed = ingredientSchema.safeParse(row);
-        if (!parsed.success) {
-            logger.error("Ingrediente actualizado inválido", { error: parsed.error });
-            throw new Error("Ingrediente actualizado inválido");
+        if (!updatedIngredientRow) {
+            const errorMessage = "No data returned after ingredient update";
+            logger.error(errorMessage, { ingredientId, updateData });
+            throw new DatabaseError(errorMessage);
         }
 
-        cache.del(INGREDIENT_CACHE_KEY);
-        return parsed.data;
+        const validatedUpdatedIngredient = this.validateIngredientData(
+            updatedIngredientRow,
+            `ingredient update for ID: ${ingredientId}`
+        );
+
+        // Invalidate relevant cache entries
+        this.invalidateIngredientCache();
+        this.invalidateSingleIngredientCache(ingredientId);
+
+        logger.info("Ingredient updated successfully", {
+            ingredientId,
+            changedFields: Object.keys(updateData)
+        });
+
+        return validatedUpdatedIngredient;
     }
 
-    async delete(id: number): Promise<boolean> {
-        const result = await turso.execute({
+    /**
+     * Deletes an ingredient by ID
+     */
+    async delete(ingredientId: number): Promise<boolean> {
+        const deleteQuery = {
             sql: `DELETE FROM ingredients WHERE id = ?`,
-            args: [id],
-        });
+            args: [ingredientId],
+        };
 
-        if (result.rowsAffected > 0) {
-            cache.del(INGREDIENT_CACHE_KEY);
-            logger.info("Ingrediente eliminado", { id });
-            return true;
+        const queryResult = await this.executeDatabaseQuery(deleteQuery, "delete ingredient");
+        const wasDeleted = queryResult.rowsAffected > 0;
+
+        if (wasDeleted) {
+            // Invalidate relevant cache entries
+            this.invalidateIngredientCache();
+            this.invalidateSingleIngredientCache(ingredientId);
+
+            logger.info("Ingredient deleted successfully", { ingredientId });
+        } else {
+            logger.warn("Ingredient not found for deletion", { ingredientId });
         }
 
-        logger.warn("Ingrediente no encontrado para eliminar", { id });
-        return false;
+        return wasDeleted;
+    }
+
+    /**
+     * Checks if an ingredient exists by ID
+     */
+    async exists(ingredientId: number): Promise<boolean> {
+        const ingredient = await this.findById(ingredientId);
+        return ingredient !== null;
+    }
+
+    /**
+     * Finds ingredients by name (partial match)
+     */
+    async findByName(searchTerm: string): Promise<Ingredient[]> {
+        const searchQuery = {
+            sql: `SELECT * FROM ingredients WHERE name ILIKE ? ORDER BY name`,
+            args: [`%${searchTerm}%`],
+        };
+
+        const queryResult = await this.executeDatabaseQuery(searchQuery, "search ingredients by name");
+        const matchingIngredients: Ingredient[] = [];
+
+        for (const ingredientRow of queryResult.rows) {
+            try {
+                const validatedIngredient = this.validateIngredientData(
+                    ingredientRow,
+                    "ingredient search by name"
+                );
+                matchingIngredients.push(validatedIngredient);
+            } catch (validationError) {
+                logger.warn("Skipping invalid ingredient row in search", {
+                    error: validationError,
+                    row: ingredientRow
+                });
+            }
+        }
+
+        logger.debug("Ingredients found by name search", {
+            searchTerm,
+            resultCount: matchingIngredients.length
+        });
+
+        return matchingIngredients;
     }
 }

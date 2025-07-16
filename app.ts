@@ -17,6 +17,7 @@ import userRoutes from '@/routes/user_routes';
 import categoryRoutes from '@/routes/categories_routes'
 import ingredientRoutes from '@/routes/ingredients_routes'
 import productRoutes from '@/routes/products_routes'
+import orderStatusRoutes from '@/routes/orders_status_routes'
 
 const app = express();
 
@@ -41,6 +42,8 @@ app.use('/', userRoutes);
 app.use('/api/v1', categoryRoutes)
 app.use('/api/v1', ingredientRoutes)
 app.use('/api/v1/', productRoutes)
+app.use('/api/v1/', orderStatusRoutes)
+
 setupGraphQl(app)
 
 // Middleware para manejar errores
