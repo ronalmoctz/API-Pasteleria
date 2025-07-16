@@ -1,6 +1,7 @@
 import { OrderStatusRepository } from "@/repositories/orders_status_reporsitory";
 import { AppError } from "@/utils/app_error";
 import { logger } from "@/utils/logger";
+import { HTTP_STATUS } from "@/constants/http_status";
 import type { CreateOrderStatus, UpdateOrderStatus } from "@/schemas/orders_status_schema";
 import type { OrderStatus } from "@/interfaces/orders_status_interface";
 
@@ -16,15 +17,7 @@ const ERROR_MESSAGES = {
     INVALID_STATUS_NAME: "El nombre del estado de orden no es válido",
 } as const;
 
-// HTTP status codes
-const HTTP_STATUS = {
-    OK: 200,
-    CREATED: 201,
-    BAD_REQUEST: 400,
-    NOT_FOUND: 404,
-    CONFLICT: 409,
-    INTERNAL_SERVER_ERROR: 500,
-} as const;
+
 
 export class OrderStatusService {
     private orderStatusRepository = new OrderStatusRepository();
