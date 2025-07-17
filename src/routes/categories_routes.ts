@@ -68,7 +68,7 @@ router.get('/categories', getAllCategories);
  *       404:
  *         description: Categoría no encontrada
  */
-router.get('/categories/:id', getCategoryById);
+router.get('/categories/:id', authenticateToken, requireAdmin, getCategoryById);
 
 /**
  * @openapi
@@ -96,7 +96,7 @@ router.get('/categories/:id', getCategoryById);
  *       404:
  *         description: Categoría no encontrada
  */
-router.put('/categories/:id', updateCategory);
+router.put('/categories/:id', authenticateToken, requireAdmin, updateCategory);
 
 /**
  * @openapi
@@ -118,6 +118,6 @@ router.put('/categories/:id', updateCategory);
  *       404:
  *         description: Categoría no encontrada
  */
-router.delete('/categories/:id', deleteCategory);
+router.delete('/categories/:id', authenticateToken, requireAdmin, deleteCategory);
 
 export default router;
