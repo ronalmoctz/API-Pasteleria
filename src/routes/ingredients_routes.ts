@@ -6,6 +6,7 @@ import {
     updateIngredient,
     deleteIngredient
 } from '@/controllers/ingredients_controller';
+import { authenticateToken, requireAdmin } from '@/middlewares/auth';
 import { apiLimiter } from '@/middlewares/rate_limit';
 
 const router = Router();
@@ -30,7 +31,7 @@ router.use(apiLimiter);
  *       400:
  *         description: Error de validación o conflicto
  */
-router.post('/ingredients', createIngredient);
+router.post('/ingredients', authenticateToken, requireAdmin, createIngredient);
 
 /**
  * @openapi
@@ -67,7 +68,7 @@ router.get('/ingredients', getAllIngredients);
  *       404:
  *         description: Ingrediente no encontrado
  */
-router.get('/ingredients/:id', getIngredientById);
+router.get('/ingredients/:id', authenticateToken, requireAdmin, getIngredientById);
 
 /**
  * @openapi
@@ -95,7 +96,7 @@ router.get('/ingredients/:id', getIngredientById);
  *       404:
  *         description: Ingrediente no encontrado
  */
-router.put('/ingredients/:id', updateIngredient);
+router.put('/ingredients/:id', authenticateToken, requireAdmin, updateIngredient);
 
 /**
  * @openapi
@@ -117,6 +118,6 @@ router.put('/ingredients/:id', updateIngredient);
  *       404:
  *         description: Ingrediente no encontrado
  */
-router.delete('/ingredients/:id', deleteIngredient);
+router.delete('/ingredients/:id', authenticateToken, requireAdmin, deleteIngredient);
 
 export default router;
