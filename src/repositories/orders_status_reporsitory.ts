@@ -85,7 +85,7 @@ export class OrderStatusRepository {
      */
     async create(orderStatusData: CreateOrderStatus): Promise<OrderStatus> {
         const insertQuery = {
-            sql: `INSERT INTO order_status (status_name) VALUES (?) RETURNING *`,
+            sql: `INSERT INTO order_statuses (status_name) VALUES (?) RETURNING *`,
             args: [orderStatusData.status_name],
         };
 
@@ -126,7 +126,7 @@ export class OrderStatusRepository {
         }
 
         // Query database
-        const selectQuery = { sql: `SELECT * FROM order_status ORDER BY status_name` };
+        const selectQuery = { sql: `SELECT * FROM order_statuses ORDER BY status_name` };
         const queryResult = await this.executeDatabaseQuery(selectQuery, "fetch all order statuses");
 
         const validatedOrderStatuses: OrderStatus[] = [];
@@ -172,7 +172,7 @@ export class OrderStatusRepository {
 
         // Query database
         const selectQuery = {
-            sql: `SELECT * FROM order_status WHERE id = ?`,
+            sql: `SELECT * FROM order_statuses WHERE id = ?`,
             args: [orderStatusId],
         };
 
@@ -212,7 +212,7 @@ export class OrderStatusRepository {
         };
 
         const updateQuery = {
-            sql: `UPDATE order_status SET status_name = ? WHERE id = ? RETURNING *`,
+            sql: `UPDATE order_statuses SET status_name = ? WHERE id = ? RETURNING *`,
             args: [updatedOrderStatusData.status_name, orderStatusId],
         };
 
@@ -247,7 +247,7 @@ export class OrderStatusRepository {
      */
     async delete(orderStatusId: number): Promise<boolean> {
         const deleteQuery = {
-            sql: `DELETE FROM order_status WHERE id = ?`,
+            sql: `DELETE FROM order_statuses WHERE id = ?`,
             args: [orderStatusId],
         };
 
@@ -280,7 +280,7 @@ export class OrderStatusRepository {
      */
     async findByName(searchTerm: string): Promise<OrderStatus[]> {
         const searchQuery = {
-            sql: `SELECT * FROM order_status WHERE status_name ILIKE ? ORDER BY status_name`,
+            sql: `SELECT * FROM order_statuses WHERE status_name ILIKE ? ORDER BY status_name`,
             args: [`%${searchTerm}%`],
         };
 
@@ -315,7 +315,7 @@ export class OrderStatusRepository {
      */
     async findByExactName(statusName: string): Promise<OrderStatus | null> {
         const searchQuery = {
-            sql: `SELECT * FROM order_status WHERE status_name = ?`,
+            sql: `SELECT * FROM order_statuses WHERE status_name = ?`,
             args: [statusName],
         };
 
