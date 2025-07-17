@@ -54,8 +54,21 @@ src/
 - `pnpm build` — Compila el proyecto TypeScript
 
 ## 🔐 Autenticación y Seguridad
+> La API implementa autenticación JWT, rate limiting y validación de datos para proteger los endpoints.
+
 > [!IMPORTANT]
 > La API implementa autenticación JWT, rate limiting y validación de datos para proteger los endpoints.
+
+### 🔑 Uso de JWT y Bearer Token
+
+Para acceder a los endpoints protegidos, debes autenticarte y obtener un token JWT. Este token debe ser enviado en la cabecera `Authorization` de tus peticiones como un Bearer Token:
+
+```http
+Authorization: Bearer <tu_token_jwt>
+```
+
+> [!NOTE]
+> Asegúrate de incluir el prefijo `Bearer` seguido de un espacio y luego el token JWT.
 
 ## 📖 Documentación
 - Swagger UI disponible en `/api-docs`
@@ -63,7 +76,8 @@ src/
 - Esquema GraphQL en `/graphql`
 
 ## 🧑‍💻 Autor
-- Desarrollador: [Tu Nombre Aquí]
+- Desarrollador: Ronaldo Moctezuma
 
 ## 📄 Licencia
-Este proyecto está bajo la licencia ISC.
+
+Este proyecto está bajo la licencia ISC. Consulta el archivo [LICENSE](./LICENSE) para más detalles.
