@@ -19,7 +19,7 @@ export const UserRepository = {
             const row = result.rows[0];
 
             const user: User = {
-                id: String(row.id),
+                id: Number(row.id),
                 first_name: String(row.first_name),
                 last_name: String(row.last_name),
                 email: String(row.email),
@@ -77,12 +77,16 @@ export const UserRepository = {
             throw new Error("Datos de login inválidos");
         }
 
+
         const { email, password } = parsed.data;
         const user = await this.findByEmail(email);
         if (!user) throw new Error("Usuario o contraseña incorrectos");
 
         const valid = await comparePassword(password, user.password_hash);
-        if (!valid) throw new Error("Usuario o contraseña incorrectos");
+        if (!valid) {
+            logger.debug("Contraseña inválida", { plain: data.password, hash: user.password_hash });
+            throw new Error('Usuario o contraseña incorrectos');
+        }
 
         const token = await signToken({
             sub: user.id,

@@ -6,6 +6,7 @@ import {
     updateCategory,
     deleteCategory
 } from '@/controllers/categories_controller';
+import { authenticateToken, requireAdmin } from '@/middlewares/auth';
 import { apiLimiter } from '@/middlewares/rate_limit';
 
 const router = Router();
@@ -30,7 +31,7 @@ router.use(apiLimiter);
  *       400:
  *         description: Error de validación o conflicto
  */
-router.post('/categories', createCategory);
+router.post('/categories', authenticateToken, requireAdmin, createCategory);
 
 /**
  * @openapi

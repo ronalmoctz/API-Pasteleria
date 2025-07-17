@@ -18,7 +18,7 @@ const validateJWTConfig = (): void => {
 validateJWTConfig();
 
 export interface TokenPayload {
-    sub: string;           // ID del usuario
+    sub: number;           // ID del usuario
     user_name: string;     // Nombre del usuario
     role: 'admin' | 'customer';
     iat?: number;          // Issued at
@@ -61,7 +61,7 @@ export function verifyToken(token: string): Promise<TokenPayload> {
                 return reject(new Error('Token inválido o expirado'));
             }
 
-            const payload = decoded as TokenPayload;
+            const payload = decoded as unknown as TokenPayload;
 
             // Validar campos requeridos
             if (!payload.sub || !payload.user_name || !payload.role) {
