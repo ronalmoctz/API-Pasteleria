@@ -9,6 +9,7 @@ import {
     getProductsByAvailability,
     getProductsByCategory
 } from '@/controllers/products_controller';
+import { authenticateToken, requireAdmin } from '@/middlewares/auth';
 import { apiLimiter } from '@/middlewares/rate_limit';
 
 const router = Router();
@@ -33,7 +34,7 @@ router.use(apiLimiter);
  *       400:
  *         description: Error de validación o conflicto
  */
-router.post('/products', createProduct);
+router.post('/products', authenticateToken, requireAdmin, createProduct);
 
 /**
  * @openapi
@@ -70,7 +71,7 @@ router.get('/products', getAllProducts);
  *       404:
  *         description: Producto no encontrado
  */
-router.get('/products/:id', getProductById);
+router.get('/products/:id', authenticateToken, requireAdmin, getProductById);
 
 /**
  * @openapi
@@ -98,7 +99,7 @@ router.get('/products/:id', getProductById);
  *       404:
  *         description: Producto no encontrado
  */
-router.put('/products/:id', updateProduct);
+router.put('/products/:id', authenticateToken, requireAdmin, updateProduct);
 
 /**
  * @openapi
@@ -120,7 +121,7 @@ router.put('/products/:id', updateProduct);
  *       404:
  *         description: Producto no encontrado
  */
-router.delete('/products/:id', deleteProduct);
+router.delete('/products/:id', authenticateToken, requireAdmin, deleteProduct);
 
 /**
  * @openapi
