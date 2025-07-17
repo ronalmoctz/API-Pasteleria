@@ -8,6 +8,7 @@ import {
     updateOrder,
     deleteOrder,
 } from '@/controllers/orders_controller';
+import { authenticateToken, requireAdmin, requireCustomer } from '@/middlewares/auth';
 import { apiLimiter } from '@/middlewares/rate_limit';
 
 const router = Router();
@@ -32,7 +33,7 @@ router.use(apiLimiter);
  *       400:
  *         description: Datos inválidos o conflicto
  */
-router.post('/orders', createOrder);
+router.post('/orders', authenticateToken, requireAdmin, requireCustomer, createOrder);
 
 /**
  * @openapi
@@ -69,7 +70,7 @@ router.get('/orders', getAllOrders);
  *       404:
  *         description: Orden no encontrada
  */
-router.get('/orders/:id', getOrderById);
+router.get('/orders/:id', authenticateToken, requireAdmin, requireCustomer, getOrderById);
 
 /**
  * @openapi
@@ -99,7 +100,7 @@ router.get('/orders/:id', getOrderById);
  *       404:
  *         description: Orden no encontrada
  */
-router.put('/orders/:id', updateOrder);
+router.put('/orders/:id', authenticateToken, requireAdmin, requireCustomer, updateOrder);
 
 /**
  * @openapi
@@ -121,6 +122,6 @@ router.put('/orders/:id', updateOrder);
  *       404:
  *         description: Orden no encontrada
  */
-router.delete('/orders/:id', deleteOrder);
+router.delete('/orders/:id', authenticateToken, requireAdmin, requireCustomer, deleteOrder);
 
 export default router;

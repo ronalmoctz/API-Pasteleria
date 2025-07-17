@@ -6,6 +6,7 @@ import {
     updateOrderStatus,
     deleteOrderStatus,
 } from '@/controllers/order_status_controller';
+import { authenticateToken, requireAdmin } from '@/middlewares/auth';
 import { apiLimiter } from '@/middlewares/rate_limit';
 
 const router = Router();
@@ -30,7 +31,7 @@ router.use(apiLimiter);
  *       400:
  *         description: Datos inválidos o conflicto
  */
-router.post('/order-statuses', createOrderStatus);
+router.post('/order-statuses', authenticateToken, requireAdmin, createOrderStatus);
 
 /**
  * @openapi
@@ -67,7 +68,7 @@ router.get('/order-statuses', getAllOrderStatuses);
  *       404:
  *         description: Estado de orden no encontrado
  */
-router.get('/order-statuses/:id', getOrderStatusById);
+router.get('/order-statuses/:id', authenticateToken, requireAdmin, getOrderStatusById);
 
 /**
  * @openapi
@@ -97,7 +98,7 @@ router.get('/order-statuses/:id', getOrderStatusById);
  *       400:
  *         description: Datos inválidos
  */
-router.put('/order-statuses/:id', updateOrderStatus);
+router.put('/order-statuses/:id', authenticateToken, requireAdmin, updateOrderStatus);
 
 /**
  * @openapi
@@ -119,7 +120,7 @@ router.put('/order-statuses/:id', updateOrderStatus);
  *       404:
  *         description: Estado no encontrado
  */
-router.delete('/order-statuses/:id', deleteOrderStatus);
+router.delete('/order-statuses/:id', authenticateToken, requireAdmin, deleteOrderStatus);
 
 
 
