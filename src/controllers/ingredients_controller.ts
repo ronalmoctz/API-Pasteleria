@@ -13,7 +13,7 @@ const ingredientService = new IngredientService();
  */
 export async function createIngredient(req: Request, res: Response, next: NextFunction) {
     try {
-        const ingredient = await ingredientService.create(req.body);
+        const ingredient = await ingredientService.createIngredient(req.body);
         return res.status(201).json({
             success: true,
             data: ingredient,
@@ -33,7 +33,7 @@ export async function createIngredient(req: Request, res: Response, next: NextFu
  */
 export async function getAllIngredients(_req: Request, res: Response, next: NextFunction) {
     try {
-        const ingredients = await ingredientService.findAll();
+        const ingredients = await ingredientService.getAllIngredients();
         return res.status(200).json({
             success: true,
             data: ingredients,
@@ -55,7 +55,7 @@ export async function getAllIngredients(_req: Request, res: Response, next: Next
 export async function getIngredientById(req: Request, res: Response, next: NextFunction) {
     try {
         const id = Number(req.params.id);
-        const ingredient = await ingredientService.findById(id);
+        const ingredient = await ingredientService.getIngredientById(id);
         return res.status(200).json({
             success: true,
             data: ingredient,
@@ -78,7 +78,7 @@ export async function getIngredientById(req: Request, res: Response, next: NextF
 export async function updateIngredient(req: Request, res: Response, next: NextFunction) {
     try {
         const id = Number(req.params.id);
-        const ingredient = await ingredientService.update(id, req.body);
+        const ingredient = await ingredientService.updateIngredient(id, req.body);
         return res.status(200).json({
             success: true,
             data: ingredient,
@@ -100,7 +100,7 @@ export async function updateIngredient(req: Request, res: Response, next: NextFu
 export async function deleteIngredient(req: Request, res: Response, next: NextFunction) {
     try {
         const id = Number(req.params.id);
-        await ingredientService.delete(id);
+        await ingredientService.deleteIngredient(id);
         return res.status(200).json({
             success: true,
             message: "Ingrediente eliminado exitosamente"
