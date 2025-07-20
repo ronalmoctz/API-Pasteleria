@@ -8,7 +8,7 @@
     "dev": "tsx --watch app.ts",
     "start": "tsx app.ts",
     "lint": "eslint . ",
-    "build": "tsc --build"
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",
