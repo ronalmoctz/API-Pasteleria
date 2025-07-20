@@ -24,8 +24,9 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "verbatimModuleSyntax": false,
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
+    "allowImportingTsExtensions": false,
+    "outDir": "dist",
+    "noEmit": false,
 
     "strict": true,
     "skipLibCheck": true,

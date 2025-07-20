@@ -31,13 +31,13 @@ setupSwagger(app);
 
 
 
-app.get('/', (_req, res) => {
-    res.send({
-        success: true,
-        message: '🧁 API de pastelería lista',
-        timestamp: new Date().toISOString()
-    });
-});
+// app.get('/', (_req, res) => {
+//     res.json({
+//         success: true,
+//         message: '🧁 API de pastelería lista',
+//         timestamp: new Date().toISOString()
+//     });
+// });
 
 app.use('/', userRoutes);
 app.use('/api/v1', categoryRoutes)
