@@ -14,7 +14,7 @@ const productService = new ProductService();
 export async function createProduct(req: Request, res: Response, next: NextFunction) {
     try {
         const product = await productService.create(req.body);
-        return res.status(201).json({
+        res.status(201).json({
             success: true,
             data: product,
             message: "Producto creado exitosamente"
@@ -34,7 +34,7 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
 export async function getAllProducts(_req: Request, res: Response, next: NextFunction) {
     try {
         const products = await productService.findAll();
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             data: products,
             count: products.length,
@@ -60,14 +60,14 @@ export async function getProductById(req: Request, res: Response, next: NextFunc
         const id = parseInt(req.params.id);
 
         if (isNaN(id)) {
-            return res.status(400).json({
+            res.status(400).json({
                 success: false,
                 error: "ID inválido, debe ser un número"
             });
         }
 
         const product = await productService.findById(id);
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             data: product,
             message: "Producto obtenido exitosamente"
@@ -93,14 +93,14 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
         const id = parseInt(req.params.id);
 
         if (isNaN(id)) {
-            return res.status(400).json({
+            res.status(400).json({
                 success: false,
                 error: "ID inválido, debe ser un número"
             });
         }
 
         const product = await productService.update(id, req.body);
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             data: product,
             message: "Producto actualizado exitosamente"
@@ -125,14 +125,14 @@ export async function deleteProduct(req: Request, res: Response, next: NextFunct
         const id = parseInt(req.params.id);
 
         if (isNaN(id)) {
-            return res.status(400).json({
+            res.status(400).json({
                 success: false,
                 error: "ID inválido, debe ser un número"
             });
         }
 
         await productService.delete(id);
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             message: "Producto eliminado exitosamente"
         });
@@ -155,14 +155,15 @@ export async function searchProducts(req: Request, res: Response, next: NextFunc
         const { q } = req.query;
 
         if (!q || typeof q !== 'string') {
-            return res.status(400).json({
+            res.status(400).json({
                 success: false,
                 error: "Query de búsqueda requerida"
             });
+            return;
         }
 
-        const products = await productService.search(q);
-        return res.status(200).json({
+        const products = await productService.search(q as string);
+        res.status(200).json({
             success: true,
             data: products,
             count: products.length,
@@ -188,7 +189,7 @@ export async function getProductsByAvailability(req: Request, res: Response, nex
         const { status } = req.params;
 
         if (!['available', 'unavailable'].includes(status)) {
-            return res.status(400).json({
+            res.status(400).json({
                 success: false,
                 error: "Status debe ser 'available' o 'unavailable'"
             });
@@ -197,7 +198,7 @@ export async function getProductsByAvailability(req: Request, res: Response, nex
         const isAvailable = status === 'available';
         const products = await productService.findByAvailability(isAvailable);
 
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             data: products,
             count: products.length,
@@ -223,14 +224,14 @@ export async function getProductsByCategory(req: Request, res: Response, next: N
         const categoryId = parseInt(req.params.categoryId);
 
         if (isNaN(categoryId)) {
-            return res.status(400).json({
+            res.status(400).json({
                 success: false,
                 error: "ID de categoría inválido, debe ser un número"
             });
         }
 
         const products = await productService.findByCategory(categoryId);
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             data: products,
             count: products.length,

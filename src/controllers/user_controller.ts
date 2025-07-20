@@ -1,6 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
 import { UserService } from "@/services/user_service";
-import { date, success } from "zod/v4";
 
 const userService = new UserService();
 
@@ -16,7 +15,7 @@ const userService = new UserService();
 export async function register(req: Request, res: Response, next: NextFunction) {
     try {
         const user = await userService.register(req.body)
-        return res.status(201).json({
+        res.status(201).json({
             success: true,
             data: user,
             message: "User registered successfully",
@@ -36,7 +35,7 @@ export async function register(req: Request, res: Response, next: NextFunction) 
 export async function login(req: Request, res: Response, next: NextFunction) {
     try {
         const { user, token } = await userService.login(req.body);
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             data: { user, token },
             message: "User logged in successfully",
@@ -58,7 +57,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 export async function getUserByEmail(req: Request, res: Response, next: NextFunction) {
     try {
         const user = await userService.getUserByEmail(req.params.email)
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             data: user,
             message: "User found successfully",

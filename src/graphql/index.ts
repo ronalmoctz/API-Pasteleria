@@ -22,3 +22,4 @@ export const setupGraphQl = (app: Express) => {
 
     app.use(yoga.graphqlEndpoint, yoga)
 }
+

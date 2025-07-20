@@ -14,7 +14,7 @@ const ingredientService = new IngredientService();
 export async function createIngredient(req: Request, res: Response, next: NextFunction) {
     try {
         const ingredient = await ingredientService.createIngredient(req.body);
-        return res.status(201).json({
+        res.status(201).json({
             success: true,
             data: ingredient,
             message: "Ingrediente creado exitosamente"
@@ -34,7 +34,7 @@ export async function createIngredient(req: Request, res: Response, next: NextFu
 export async function getAllIngredients(_req: Request, res: Response, next: NextFunction) {
     try {
         const ingredients = await ingredientService.getAllIngredients();
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             data: ingredients,
             message: "Lista de ingredientes obtenida exitosamente"
@@ -56,7 +56,7 @@ export async function getIngredientById(req: Request, res: Response, next: NextF
     try {
         const id = Number(req.params.id);
         const ingredient = await ingredientService.getIngredientById(id);
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             data: ingredient,
             message: "Ingrediente encontrado"
@@ -79,7 +79,7 @@ export async function updateIngredient(req: Request, res: Response, next: NextFu
     try {
         const id = Number(req.params.id);
         const ingredient = await ingredientService.updateIngredient(id, req.body);
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             data: ingredient,
             message: "Ingrediente actualizado exitosamente"
@@ -101,7 +101,7 @@ export async function deleteIngredient(req: Request, res: Response, next: NextFu
     try {
         const id = Number(req.params.id);
         await ingredientService.deleteIngredient(id);
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             message: "Ingrediente eliminado exitosamente"
         });

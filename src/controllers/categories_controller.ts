@@ -13,8 +13,8 @@ const categoryService = new CategoryService();
  */
 export async function createCategory(req: Request, res: Response, next: NextFunction) {
     try {
-        const category = await categoryService.create(req.body);
-        return res.status(201).json({
+        const category = await categoryService.createCategory(req.body);
+        res.status(201).json({
             success: true,
             data: category,
             message: "Categoría creada exitosamente"
@@ -33,8 +33,8 @@ export async function createCategory(req: Request, res: Response, next: NextFunc
  */
 export async function getAllCategories(_req: Request, res: Response, next: NextFunction) {
     try {
-        const categories = await categoryService.findAll();
-        return res.status(200).json({
+        const categories = await categoryService.getAllCategories();
+        res.status(200).json({
             success: true,
             data: categories,
             message: "Lista de categorías obtenida exitosamente"
@@ -52,10 +52,11 @@ export async function getAllCategories(_req: Request, res: Response, next: NextF
  * @returns 200 - Categoría encontrada
  * @returns 404 - Categoría no encontrada
  */
-export async function getCategoryById(req: Request, res: Response, next: NextFunction) {
+export async function getCategoryById(_req: Request, res: Response, next: NextFunction) {
     try {
-        const category = await categoryService.findById(req.params.id);
-        return res.status(200).json({
+        const category = await categoryService.
+            getCategoryById(_req.params.id);
+        res.status(200).json({
             success: true,
             data: category,
             message: "Categoría encontrada"
@@ -76,8 +77,8 @@ export async function getCategoryById(req: Request, res: Response, next: NextFun
  */
 export async function updateCategory(req: Request, res: Response, next: NextFunction) {
     try {
-        const category = await categoryService.update(req.params.id, req.body);
-        return res.status(200).json({
+        const category = await categoryService.updateCategory(req.params.id, req.body);
+        res.status(200).json({
             success: true,
             data: category,
             message: "Categoría actualizada exitosamente"
@@ -97,8 +98,8 @@ export async function updateCategory(req: Request, res: Response, next: NextFunc
  */
 export async function deleteCategory(req: Request, res: Response, next: NextFunction) {
     try {
-        await categoryService.delete(req.params.id);
-        return res.status(200).json({
+        await categoryService.deleteCategory(req.params.id);
+        res.status(200).json({
             success: true,
             message: "Categoría eliminada exitosamente"
         });
