@@ -1,7 +1,7 @@
-import { UserRepository } from "@/repositories/user_repository";
-import { AppError } from "@/utils/app_error";
-import { logger } from "@/utils/logger";
-import type { RegisterUserDTO, LoginDTO, PublicUserDTO } from "@/schemas/user_schema";
+import { UserRepository } from "@/repositories/user_repository.js";
+import { AppError } from "@/utils/app_error.js";
+import { logger } from "@/utils/logger.js";
+import type { RegisterUserDTO, LoginDTO, PublicUserDTO } from "@/schemas/user_schema.js";
 
 interface LoginResponse {
     user: PublicUserDTO;

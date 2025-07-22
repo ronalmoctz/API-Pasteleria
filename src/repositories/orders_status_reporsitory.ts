@@ -1,9 +1,9 @@
-import { cache } from "@/utils/chache";
-import { turso } from "@/config/tursoClient";
-import { logger } from "@/utils/logger";
-import type { OrderStatus } from "@/interfaces/orders_status_interface";
-import type { CreateOrderStatus, UpdateOrderStatus } from "@/schemas/orders_status_schema";
-import { orderStatusSchema } from "@/schemas/orders_status_schema";
+import { cache } from "@/utils/chache.js";
+import { turso } from "@/config/tursoClient.js";
+import { logger } from "@/utils/logger.js";
+import type { OrderStatus } from "@/interfaces/orders_status_interface.js";
+import type { CreateOrderStatus, UpdateOrderStatus } from "@/schemas/orders_status_schema.js";
+import { orderStatusSchema } from "@/schemas/orders_status_schema.js";
 
 // Cache configuration
 const CACHE_KEYS = {

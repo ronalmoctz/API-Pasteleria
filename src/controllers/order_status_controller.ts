@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { OrderStatusService } from '@/services/order_status_service';
+import { OrderStatusService } from '@/services/order_status_service.js';
 
 const orderStatusService = new OrderStatusService();
 

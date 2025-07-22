@@ -1,9 +1,9 @@
-import { cache } from "@/utils/chache";
-import { turso } from "@/config/tursoClient";
-import { logger } from "@/utils/logger";
-import type { Categories } from "@/interfaces/categories_interface";
-import type { CreateCategoryDTO, UpdateCategoryDTO } from "@/schemas/categories_schema";
-import { CategorySchema } from "@/schemas/categories_schema";
+import { cache } from "@/utils/chache.js";
+import { turso } from "@/config/tursoClient.js";
+import { logger } from "@/utils/logger.js";
+import type { Categories } from "@/interfaces/categories_interface.js";
+import type { CreateCategoryDTO, UpdateCategoryDTO } from "@/schemas/categories_schema.js";
+import { CategorySchema } from "@/schemas/categories_schema.js";
 
 // Cache configuration
 const CACHE_KEYS = {

@@ -1,7 +1,7 @@
-import { ProductRepository } from "@/repositories/products_repository";
-import { AppError } from "@/utils/app_error";
-import { logger } from "@/utils/logger";
-import type { CreateProduct, UpdateProduct, Product } from "@/schemas/products_schema";
+import { ProductRepository } from "@/repositories/products_repository.js";
+import { AppError } from "@/utils/app_error.js";
+import { logger } from "@/utils/logger.js";
+import type { CreateProduct, UpdateProduct, Product } from "@/schemas/products_schema.js";
 
 export class ProductService {
 

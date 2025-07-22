@@ -1,8 +1,8 @@
-import { IngredientRepository } from "@/repositories/ingredient_repository";
-import { AppError } from "@/utils/app_error";
-import { logger } from "@/utils/logger";
-import type { CreateIngredient, UpdateIngredient } from "@/schemas/ingredients_schema";
-import type { Ingredient } from "@/interfaces/ingredient_interfaces";
+import { IngredientRepository } from "@/repositories/ingredient_repository.js";
+import { AppError } from "@/utils/app_error.js";
+import { logger } from "@/utils/logger.js";
+import type { CreateIngredient, UpdateIngredient } from "@/schemas/ingredients_schema.js";
+import type { Ingredient } from "@/interfaces/ingredient_interfaces.js";
 
 // Service-specific error messages
 const ERROR_MESSAGES = {

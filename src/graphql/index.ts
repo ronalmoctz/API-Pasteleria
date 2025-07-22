@@ -1,8 +1,8 @@
 import { createSchema, createYoga } from "graphql-yoga";
-import { apiLimiter } from "@/middlewares/rate_limit";
+import { apiLimiter } from "@/middlewares/rate_limit.js";
 import type { Express } from "express";
-import { productsResolvers } from './resolvers/products'
-import { productsTypeDefs } from "./schemas/products";
+import { productsResolvers } from './resolvers/products.js'
+import { productsTypeDefs } from "./schemas/products.js";
 
 export const setupGraphQl = (app: Express) => {
 

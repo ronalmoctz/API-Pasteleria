@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { IngredientService } from "@/services/ingredients_service";
+import { IngredientService } from "@/services/ingredients_service.js";
 
 const ingredientService = new IngredientService();
 

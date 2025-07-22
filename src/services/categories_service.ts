@@ -1,9 +1,9 @@
-import { CategoryRepository } from "@/repositories/categories_repository";
-import { AppError } from "@/utils/app_error";
-import { logger } from "@/utils/logger";
-import { HTTP_STATUS } from "@/constants/http_status";
-import type { CreateCategoryDTO, UpdateCategoryDTO } from "@/schemas/categories_schema";
-import type { Categories } from "@/interfaces/categories_interface";
+import { CategoryRepository } from "@/repositories/categories_repository.js";
+import { AppError } from "@/utils/app_error.js";
+import { logger } from "@/utils/logger.js";
+import { HTTP_STATUS } from "@/constants/http_status.js";
+import type { CreateCategoryDTO, UpdateCategoryDTO } from "@/schemas/categories_schema.js";
+import type { Categories } from "@/interfaces/categories_interface.js";
 
 
 const ERROR_MESSAGES = {

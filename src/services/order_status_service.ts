@@ -1,9 +1,9 @@
-import { OrderStatusRepository } from "@/repositories/orders_status_reporsitory";
-import { AppError } from "@/utils/app_error";
-import { logger } from "@/utils/logger";
-import { HTTP_STATUS } from "@/constants/http_status";
-import type { CreateOrderStatus, UpdateOrderStatus } from "@/schemas/orders_status_schema";
-import type { OrderStatus } from "@/interfaces/orders_status_interface";
+import { OrderStatusRepository } from "@/repositories/orders_status_reporsitory.js";
+import { AppError } from "@/utils/app_error.js";
+import { logger } from "@/utils/logger.js";
+import { HTTP_STATUS } from "@/constants/http_status.js";
+import type { CreateOrderStatus, UpdateOrderStatus } from "@/schemas/orders_status_schema.js";
+import type { OrderStatus } from "@/interfaces/orders_status_interface.js";
 
 // Service-specific error messages
 const ERROR_MESSAGES = {

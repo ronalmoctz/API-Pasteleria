@@ -1,10 +1,10 @@
-import { ProductRepository } from '@/repositories/products_repository'
+import { ProductRepository } from '@/repositories/products_repository.js'
 import {
     createProductSchema,
     updateProductSchema,
     type CreateProduct,
     type UpdateProduct
-} from '@/schemas/products_schema'
+} from '@/schemas/products_schema.js'
 
 const repo = new ProductRepository()
 

@@ -1,9 +1,9 @@
 // src/repositories/products_repository.ts
-import { cache } from '@/utils/chache';
-import { turso } from '@/config/tursoClient';
-import { logger } from '@/utils/logger';
-import { productSchema } from '@/schemas/products_schema';
-import type { Product, CreateProduct, UpdateProduct } from '@/schemas/products_schema';
+import { cache } from '@/utils/chache.js';
+import { turso } from '@/config/tursoClient.js';
+import { logger } from '@/utils/logger.js';
+import { productSchema } from '@/schemas/products_schema.js';
+import type { Product, CreateProduct, UpdateProduct } from '@/schemas/products_schema.js';
 
 const PRODUCTS_CACHE_KEY = 'products:all';
 

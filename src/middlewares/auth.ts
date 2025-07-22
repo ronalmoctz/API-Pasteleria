@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
-import { verifyToken, extractTokenFromHeader } from '@/utils/jwt'
-import type { TokenPayload } from '@/utils/jwt'
-import { logger } from '@/utils/logger'
-import { error } from 'console'
+import { verifyToken, extractTokenFromHeader } from '@/utils/jwt.js'
+import type { TokenPayload } from '@/utils/jwt.js'
+import { logger } from '@/utils/logger.js'
 
 // Extend the interface Request for user
 declare global {

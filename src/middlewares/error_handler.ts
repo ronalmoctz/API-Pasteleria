@@ -1,7 +1,7 @@
 import type { ErrorRequestHandler } from "express";
-import { logger } from "@/utils/logger";
-import { ENV } from "@/config/env";
-import { AppError } from "@/utils/app_error";
+import { logger } from "@/utils/logger.js";
+import { ENV } from "@/config/env.js";
+import { AppError } from "@/utils/app_error.js";
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     const isDev = ENV.NODE_ENV === 'development';

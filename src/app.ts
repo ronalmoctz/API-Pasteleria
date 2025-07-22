@@ -2,23 +2,23 @@ import express from 'express';
 import timeout from 'connect-timeout'
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { ENV } from '@/config/env';
-import { checkTursoConnection } from '@/config/tursoClient';
-import { setupSwagger } from '@/config/swagger';
-import { errorHandler } from '@/middlewares/error_handler';
-import { logger } from '@/utils/logger';
+import { ENV } from '@/config/env.js';
+import { checkTursoConnection } from '@/config/tursoClient.js';
+import { setupSwagger } from '@/config/swagger.js';
+import { errorHandler } from '@/middlewares/error_handler.js';
+import { logger } from '@/utils/logger.js';
 
 //GraphQL import
 import { setupGraphQl } from '@/graphql';
 
 
 // Import routes
-import userRoutes from '@/routes/user_routes';
-import categoryRoutes from '@/routes/categories_routes'
-import ingredientRoutes from '@/routes/ingredients_routes'
-import productRoutes from '@/routes/products_routes'
-import orderStatusRoutes from '@/routes/orders_status_routes'
-import ordersRoutes from '@/routes/orders_routes'
+import userRoutes from '@/routes/user_routes.js';
+import categoryRoutes from '@/routes/categories_routes.js'
+import ingredientRoutes from '@/routes/ingredients_routes.js'
+import productRoutes from '@/routes/products_routes.js'
+import orderStatusRoutes from '@/routes/orders_status_routes.js'
+import ordersRoutes from '@/routes/orders_routes.js'
 
 const app = express();
 

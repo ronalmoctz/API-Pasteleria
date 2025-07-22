@@ -1,10 +1,10 @@
-import { turso } from "@/config/tursoClient";
-import type { User } from "@/interfaces/user_interfaces";
-import { logger } from "@/utils/logger";
-import { registerUserSchema, loginSchema, publicUserSchema } from "@/schemas/user_schema";
-import type { RegisterUserDTO, LoginDTO, PublicUserDTO } from "@/schemas/user_schema";
-import { signToken } from "@/utils/jwt";
-import { hashPassword, comparePassword } from "@/utils/bcrypt";
+import { turso } from "@/config/tursoClient.js";
+import type { User } from "@/interfaces/user_interfaces.js";
+import { logger } from "@/utils/logger.js";
+import { registerUserSchema, loginSchema, publicUserSchema } from "@/schemas/user_schema.js";
+import type { RegisterUserDTO, LoginDTO, PublicUserDTO } from "@/schemas/user_schema.js";
+import { signToken } from "@/utils/jwt.js";
+import { hashPassword, comparePassword } from "@/utils/bcrypt.js";
 
 export const UserRepository = {
     async findByEmail(email: string): Promise<User | null> {

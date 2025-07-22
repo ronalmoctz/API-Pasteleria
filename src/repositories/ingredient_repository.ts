@@ -1,9 +1,9 @@
-import { cache } from "@/utils/chache";
-import { turso } from "@/config/tursoClient";
-import { logger } from "@/utils/logger";
-import type { Ingredient } from "@/interfaces/ingredient_interfaces";
-import type { CreateIngredient, UpdateIngredient } from "@/schemas/ingredients_schema";
-import { ingredientSchema } from "@/schemas/ingredients_schema";
+import { cache } from "@/utils/chache.js";
+import { turso } from "@/config/tursoClient.js";
+import { logger } from "@/utils/logger.js";
+import type { Ingredient } from "@/interfaces/ingredient_interfaces.js";
+import type { CreateIngredient, UpdateIngredient } from "@/schemas/ingredients_schema.js";
+import { ingredientSchema } from "@/schemas/ingredients_schema.js";
 
 // Cache configuration
 const CACHE_KEYS = {

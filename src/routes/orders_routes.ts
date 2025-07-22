@@ -7,9 +7,9 @@ import {
     getOrderById,
     updateOrder,
     deleteOrder,
-} from '@/controllers/orders_controller';
-import { authenticateToken, requireAdmin, requireCustomer } from '@/middlewares/auth';
-import { apiLimiter } from '@/middlewares/rate_limit';
+} from '@/controllers/orders_controller.js';
+import { authenticateToken, requireAdmin, requireCustomer } from '@/middlewares/auth.js';
+import { apiLimiter } from '@/middlewares/rate_limit.js';
 
 const router = Router();
 router.use(apiLimiter);

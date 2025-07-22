@@ -1,4 +1,4 @@
-import { ENV } from "./env";
+import { ENV } from "./env.js";
 
 if (!ENV.JWT_SECRET) {
     throw new Error("JWT_SECRET is not defined in the environment variables.");

@@ -5,9 +5,9 @@ import {
     getIngredientById,
     updateIngredient,
     deleteIngredient
-} from '@/controllers/ingredients_controller';
-import { authenticateToken, requireAdmin } from '@/middlewares/auth';
-import { apiLimiter } from '@/middlewares/rate_limit';
+} from '@/controllers/ingredients_controller.js';
+import { authenticateToken, requireAdmin } from '@/middlewares/auth.js';
+import { apiLimiter } from '@/middlewares/rate_limit.js';
 
 const router = Router();
 router.use(apiLimiter);

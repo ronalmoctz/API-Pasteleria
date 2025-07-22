@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import type { SignOptions, Algorithm } from 'jsonwebtoken';
-import { ENV } from '@/config/env';
-import { logger } from '@/utils/logger';
+import { ENV } from '@/config/env.js';
+import { logger } from '@/utils/logger.js';
 
 // Validar configuración JWT
 const validateJWTConfig = (): void => {
