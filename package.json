@@ -6,8 +6,8 @@
   "main": "app.ts",
   "scripts": {
     "dev": "tsx --watch app.ts",
-    "build": "tsc",
-    "start": "node --enable-source-maps start.js",
+    "build": "tsc && tsc-alias",
+    "start": "node dist/app.js",
     "lint": "eslint . "
   },
   "keywords": [],
