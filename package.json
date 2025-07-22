@@ -6,9 +6,9 @@
   "main": "app.ts",
   "scripts": {
     "dev": "tsx --watch app.ts",
-    "start": "tsx app.ts",
-    "lint": "eslint . ",
-    "build": "tsc"
+    "build": "tsc",
+    "start": "node --enable-source-maps start.js",
+    "lint": "eslint . "
   },
   "keywords": [],
   "author": "",
@@ -41,6 +41,7 @@
     "remove": "^0.1.5",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "tsconfig-paths": "^4.2.0",
     "vercel": "^44.5.0",
     "zod": "^3.25.67",
     "zod-openapi": "^4.2.4"

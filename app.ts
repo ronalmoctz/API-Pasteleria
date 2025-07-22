@@ -35,7 +35,6 @@ setupSwagger(app);
 //     res.json({
 //         success: true,
 //         message: '🧁 API de pastelería lista',
-//         timestamp: new Date().toISOString()
 //     });
 // });
 

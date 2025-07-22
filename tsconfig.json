@@ -6,7 +6,7 @@
     "jsx": "react-jsx",
     "allowJs": true,
 
-    "baseUrl": ".",
+    "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"],
       "@config/*": ["src/config/*"],
