@@ -9,7 +9,7 @@ import { errorHandler } from '@/middlewares/error_handler.js';
 import { logger } from '@/utils/logger.js';
 
 //GraphQL import
-import { setupGraphQl } from '@/graphql';
+import { setupGraphQl } from '@/graphql/index.js';
 
 
 // Import routes
