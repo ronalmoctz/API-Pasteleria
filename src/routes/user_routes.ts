@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { login, register, getUserByEmail } from '@/controllers/user_controller.js';
+import { authenticateToken, requireAdmin } from '@/middlewares/auth.js';
+import { apiLimiter } from '@/middlewares/rate_limit.js';
 
 const router = Router();
 
 /**
  * @openapi
- * /auth/register:
+ * /api/auth/register:
  *   post:
  *     tags:
  *       - Auth
@@ -22,11 +24,11 @@ const router = Router();
  *       400:
  *         description: Error en datos de registro
  */
-router.post('/auth/register', register);
+router.post('/auth/register', apiLimiter, authenticateToken, requireAdmin, register);
 
 /**
  * @openapi
- * /auth/login:
+ * /api/auth/login:
  *   post:
  *     tags:
  *       - Auth
@@ -43,11 +45,11 @@ router.post('/auth/register', register);
  *       401:
  *         description: Credenciales incorrectas
  */
-router.post('/auth/login', login);
+router.post('/auth/login', apiLimiter, authenticateToken, login);
 
 /**
  * @openapi
- * /users/email/{email}:
+ * /api/users/email/{email}:
  *   get:
  *     tags:
  *       - Users
@@ -65,6 +67,13 @@ router.post('/auth/login', login);
  *       404:
  *         description: Usuario no encontrado
  */
-router.get('/users/email/:email', getUserByEmail);
+router.get('/users/email/:email', apiLimiter, authenticateToken, requireAdmin, getUserByEmail);
+
+router.get('/auth/register', (req, res) => {
+    return res.status(405).json({
+        message: 'Método GET no permitido. Usa POST para registrar un usuario.',
+    });
+});
+
 
 export default router;

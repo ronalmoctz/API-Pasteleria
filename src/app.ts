@@ -129,9 +129,9 @@ app.get('/health', async (_req, res) => {
     });
 });
 
-app.use('/', userRoutes);
-app.use('/api/v1', categoryRoutes)
-app.use('/api/v1', ingredientRoutes)
+app.use('/api/', userRoutes);
+app.use('/api/v1/', categoryRoutes)
+app.use('/api/v1/', ingredientRoutes)
 app.use('/api/v1/', productRoutes)
 app.use('/api/v1/', orderStatusRoutes)
 app.use('/api/v1/', ordersRoutes)
