@@ -6,6 +6,7 @@ config();
 export const ENV = {
     NODE_ENV: process.env.NODE_ENV || 'development',
     SERVER_PORT: process.env.SERVER_PORT,
+    API_BASE_URL: process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3000}`,
     TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL,
     TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
     JWT_SECRET: process.env.JWT_SECRET,

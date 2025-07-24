@@ -11,6 +11,7 @@ import { logger } from '@/utils/logger.js';
 //GraphQL import
 import { setupGraphQl } from '@/graphql/index.js';
 
+
 // Import routes
 import userRoutes from '@/routes/user_routes.js';
 import categoryRoutes from '@/routes/categories_routes.js'
@@ -28,9 +29,12 @@ app.use(express.json());
 app.use(cookieParser());
 setupSwagger(app);
 
-// Ruta raíz mejorada con información de la API y documentación
-app.get('/', (_req, res) => {
-    const baseUrl = _req.get('host') ? `https://${_req.get('host')}` : `http://localhost:${ENV.SERVER_PORT}`;
+
+
+app.get('/', (req, res) => {
+    const host = req.get('host');
+    const protocol = req.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https');
+    const baseUrl = `${protocol}://${host}`;
 
     res.json({
         success: true,
@@ -42,17 +46,16 @@ app.get('/', (_req, res) => {
             'getting_started': 'https://deepwiki.com/ronalmoctz/API-Pasteleria/1.1-getting-started',
             'api_reference': `${baseUrl}/reference`,
             'graphql_playground': `${baseUrl}/graphql`,
-            'swagger_docs': `${baseUrl}/docs`
         },
         endpoints: {
             rest_api: {
                 base_url: `${baseUrl}/api/v1`,
-                auth: '/',
-                categories: '/api/v1/categories',
-                ingredients: '/api/v1/ingredients',
-                products: '/api/v1/products',
-                order_status: '/api/v1/order-status',
-                orders: '/api/v1/orders'
+                auth: `${baseUrl}/`,
+                categories: `${baseUrl}/api/v1/categories`,
+                ingredients: `${baseUrl}/api/v1/ingredients`,
+                products: `${baseUrl}/api/v1/products`,
+                order_status: `${baseUrl}/api/v1/order-status`,
+                orders: `${baseUrl}/api/v1/orders`
             },
             graphql: {
                 endpoint: `${baseUrl}/graphql`,
@@ -72,7 +75,6 @@ app.get('/', (_req, res) => {
     });
 });
 
-// Ruta específica para información de documentación
 app.get('/docs-info', (_req, res) => {
     const baseUrl = _req.get('host') ? `https://${_req.get('host')}` : `http://localhost:${ENV.SERVER_PORT}`;
 
@@ -150,8 +152,6 @@ async function bootstrap() {
         logger.info(`🚀 Bakery API is running on http://localhost:${ENV.SERVER_PORT}`);
         logger.info(`📘 Scalar Reference at http://localhost:${ENV.SERVER_PORT}/reference`)
         logger.info(`🧠 GraphQL running on http://localhost:${ENV.SERVER_PORT}/graphql`)
-        logger.info(`📚 Getting Started Guide: https://deepwiki.com/ronalmoctz/API-Pasteleria/1.1-getting-started`)
-        logger.info(`🏥 Health Check at http://localhost:${ENV.SERVER_PORT}/health`)
     });
 }
 
