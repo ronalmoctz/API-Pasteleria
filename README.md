@@ -70,10 +70,57 @@ Authorization: Bearer <tu_token_jwt>
 > [!NOTE]
 > Asegúrate de incluir el prefijo `Bearer` seguido de un espacio y luego el token JWT.
 
-## 📖 Documentación
-- Swagger UI disponible en `/api-docs`
-- Referencia de la API con Scalar en `/reference`
-- Esquema GraphQL en `/graphql`
+
+## 📖 Documentación y Endpoints
+
+La API expone endpoints RESTful y un endpoint GraphQL, todos documentados y accesibles fácilmente:
+
+- **Swagger UI**: Documentación interactiva en `/api-docs`.
+- **Referencia Scalar**: Documentación de referencia en `/reference`.
+- **Playground GraphQL**: Esquema y pruebas en `/graphql`.
+- **Guía de inicio rápido y documentación complementaria**: [DeepWiki - Getting Started](https://deepwiki.com/ronalmoctz/API-Pasteleria/1.1-getting-started)
+
+### Endpoints principales
+
+| Tipo      | Endpoint                        | Descripción                                 |
+|-----------|----------------------------------|---------------------------------------------|
+| REST      | `/api/v1/categories`            | Gestión de categorías                       |
+| REST      | `/api/v1/ingredients`           | Gestión de ingredientes                     |
+| REST      | `/api/v1/products`              | Gestión de productos                        |
+| REST      | `/api/v1/order-status`          | Estados de órdenes                          |
+| REST      | `/api/v1/orders`                | Gestión de órdenes                          |
+| REST      | `/api/`                         | Autenticación y usuarios                    |
+| GraphQL   | `/graphql`                      | Consultas y mutaciones flexibles            |
+
+### Ruta de salud
+
+Puedes verificar el estado del sistema y la base de datos con:
+
+```http
+GET /health
+```
+Respuesta:
+```json
+{
+  "success": true,
+  "status": "healthy",
+  "timestamp": "2025-07-24T00:00:00.000Z",
+  "uptime": 123.45,
+  "database": "connected",
+  "memory": { "used": "XX MB", "total": "YY MB" },
+  "node_version": "vXX.XX.XX",
+  "environment": "development"
+}
+```
+
+### Acceso rápido a la documentación
+
+- [Guía de inicio rápido](https://deepwiki.com/ronalmoctz/API-Pasteleria/1.1-getting-started)
+- [Swagger UI](http://localhost:3000/api-docs)
+- [Referencia Scalar](http://localhost:3000/reference)
+- [Playground GraphQL](http://localhost:3000/graphql)
+
+> Puedes consultar `/docs-info` para obtener enlaces actualizados y ejemplos de uso desde la propia API.
 
 ## 🧑‍💻 Autor
 - Desarrollador: Ronaldo Moctezuma
