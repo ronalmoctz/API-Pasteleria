@@ -10,10 +10,10 @@
 ![ESLint](https://img.shields.io/badge/ESLint-4B32C3?style=for-the-badge&logo=eslint&logoColor=white)
 
 > [!IMPORTANT]
-> Este proyecto sigue el patrón DDD (Domain Driven Design) y está construido con Express, TypeScript y Turso.
+> Este proyecto sigue el patrón de clean arquitecture y está construido con Express, TypeScript y Turso.
 
 ## 📋 Descripción
-API para una pastelería, desarrollada con buenas prácticas, arquitectura DDD, validaciones, autenticación JWT, documentación Swagger y GraphQL.
+API para una pastelería, desarrollada con buenas prácticas, arquitectura repository, validaciones, autenticación JWT, documentación Swagger y GraphQL.
 
 > [!NOTE]
 > El objetivo es proveer una API robusta, segura y fácil de mantener para la gestión de productos, órdenes, usuarios y más.
