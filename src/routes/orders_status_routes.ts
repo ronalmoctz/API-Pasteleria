@@ -31,7 +31,7 @@ router.use(apiLimiter);
  *       400:
  *         description: Datos inválidos o conflicto
  */
-router.post('/order-statuses', authenticateToken, requireAdmin, createOrderStatus);
+router.post('/order-statuses', apiLimiter, authenticateToken, requireAdmin, createOrderStatus);
 
 /**
  * @openapi
@@ -46,7 +46,7 @@ router.post('/order-statuses', authenticateToken, requireAdmin, createOrderStatu
  *       500:
  *         description: Error interno del servidor
  */
-router.get('/order-statuses', getAllOrderStatuses);
+router.get('/order-statuses', apiLimiter, authenticateToken, requireAdmin, getAllOrderStatuses);
 
 /**
  * @openapi
@@ -68,7 +68,7 @@ router.get('/order-statuses', getAllOrderStatuses);
  *       404:
  *         description: Estado de orden no encontrado
  */
-router.get('/order-statuses/:id', authenticateToken, requireAdmin, getOrderStatusById);
+router.get('/order-statuses/:id', apiLimiter, authenticateToken, requireAdmin, getOrderStatusById);
 
 /**
  * @openapi
@@ -98,7 +98,7 @@ router.get('/order-statuses/:id', authenticateToken, requireAdmin, getOrderStatu
  *       400:
  *         description: Datos inválidos
  */
-router.put('/order-statuses/:id', authenticateToken, requireAdmin, updateOrderStatus);
+router.put('/order-statuses/:id', apiLimiter, authenticateToken, requireAdmin, updateOrderStatus);
 
 /**
  * @openapi
@@ -120,7 +120,7 @@ router.put('/order-statuses/:id', authenticateToken, requireAdmin, updateOrderSt
  *       404:
  *         description: Estado no encontrado
  */
-router.delete('/order-statuses/:id', authenticateToken, requireAdmin, deleteOrderStatus);
+router.delete('/order-statuses/:id', apiLimiter, authenticateToken, requireAdmin, deleteOrderStatus);
 
 
 

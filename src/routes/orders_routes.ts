@@ -33,7 +33,7 @@ router.use(apiLimiter);
  *       400:
  *         description: Datos inválidos o conflicto
  */
-router.post('/orders', authenticateToken, requireAdmin, requireCustomer, createOrder);
+router.post('/orders', apiLimiter, authenticateToken, requireAdmin, requireCustomer, createOrder);
 
 /**
  * @openapi
@@ -48,7 +48,7 @@ router.post('/orders', authenticateToken, requireAdmin, requireCustomer, createO
  *       500:
  *         description: Error interno del servidor
  */
-router.get('/orders', getAllOrders);
+router.get('/orders', apiLimiter, authenticateToken, requireAdmin, getAllOrders);
 
 /**
  * @openapi
