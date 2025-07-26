@@ -45,7 +45,7 @@ router.post('/auth/register', apiLimiter, authenticateToken, requireAdmin, regis
  *       401:
  *         description: Credenciales incorrectas
  */
-router.post('/auth/login', apiLimiter, authenticateToken, login);
+router.post('/auth/login', apiLimiter, login);
 
 /**
  * @openapi

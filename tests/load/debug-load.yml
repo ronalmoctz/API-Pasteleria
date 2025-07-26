@@ -1,0 +1,46 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    # Solo 1 usuario para debug limpio
+    - duration: 10
+      arrivalRate: 1
+      name: "Debug phase"
+
+  variables:
+    adminEmail: "ariadna.admin@pasteleria.com"
+    adminPassword: "AdminSecurePass123!"
+
+scenarios:
+  - name: "Debug Auth"
+    weight: 100
+    flow:
+      # Test login con múltiples formas de captura
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          expect:
+            - statusCode: 200
+          capture:
+            # Intentar múltiples paths posibles
+            - json: "$.token"
+              as: "token1"
+            - json: "$.data.token"  
+              as: "token2"
+            - json: "$.access_token"
+              as: "token3"
+            - json: "$.jwt"
+              as: "token4"
+            - json: "$"  # Capturar toda la respuesta para debug
+              as: "fullResponse"
+      
+      - think: 1
+      
+      # Test con el token capturado
+      - get:
+          url: "/api/v1/products"
+          headers:
+            Authorization: "Bearer {{ token1 || token2 || token3 || token4 }}"
+          expect:
+            - statusCode: [200, 401]
