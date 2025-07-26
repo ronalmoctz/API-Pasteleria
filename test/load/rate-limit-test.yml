@@ -1,0 +1,28 @@
+config:
+  target: 'https://api-pasteleria.vercel.app'
+  phases:
+    # Burst rápido para activar rate limiting
+    - duration: 10
+      arrivalRate: 500
+      name: "Rate limit trigger"
+    
+    # Mantener presión
+    - duration: 30
+      arrivalRate: 200
+      name: "Sustained rate limit test"
+
+scenarios:
+  # Test específico para verificar que rate limiting funciona
+  - name: "Rate Limit Verification"
+    weight: 100
+    flow:
+      # Múltiples requests rápidos al mismo endpoint
+      - loop:
+          - post:
+              url: "/api/auth/login"
+              json:
+                email: "test@test.com"
+                password: "test123"
+              expect:
+                - statusCode: [200, 401, 429] # 429 = Rate limited
+        count: 10

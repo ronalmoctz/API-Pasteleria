@@ -1,0 +1,391 @@
+config:
+  target: 'https://api-pasteleria.vercel.app'
+  phases:
+    # Warm-up: 10 usuarios por 30 segundos
+    - duration: 30
+      arrivalRate: 10
+      name: "Warming up"
+    
+    # Load test: 50 usuarios por 2 minutos
+    - duration: 120
+      arrivalRate: 50
+      name: "Normal load"
+    
+    # Peak load: 100 usuarios por 1 minuto
+    - duration: 60
+      arrivalRate: 100
+      name: "Peak load"
+    
+    # Cool down: 10 usuarios por 30 segundos
+    - duration: 30
+      arrivalRate: 10
+      name: "Cool down"
+
+  # Variables globales para testing
+  variables:
+    adminEmail: "ariadna.admin@pasteleria.com"
+    adminPassword: "AdminSecurePass123!"
+    testEmail: "test@pasteleria.com"
+    testPassword: "test123"
+
+scenarios:
+  # 20% - Endpoints públicos (sin auth)
+  - name: "Public Endpoints"
+    weight: 20
+    flow:
+      - get:
+          url: "/"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/docs-info"
+          expect:
+            - statusCode: 200
+
+  # 30% - Proceso de autenticación
+  - name: "Authentication Flow"
+    weight: 30
+    flow:
+      # Login exitoso
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # Intentar login con credenciales incorrectas
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "wrong@email.com"
+            password: "wrongpassword"
+          expect:
+            - statusCode: [401, 400]
+
+  # 25% - Endpoints de productos (requieren auth)
+  - name: "Products API"
+    weight: 25
+    flow:
+      # Hacer login primero
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # Obtener todos los productos
+      - get:
+          url: "/api/v1/products"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      # Obtener producto específico
+      - get:
+          url: "/api/v1/products/1"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: [200, 404]
+      
+      # Crear producto nuevo (solo admin)
+      - post:
+          url: "/api/v1/products"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+            Content-Type: "application/json"
+          json:
+            name: "Pastel Test {{ $randomString() }}"
+            description: "Pastel generado en load test"
+            price: "{{ $randomInt(100, 500) }}"
+            category_id: 1
+          expect:
+            - statusCode: [201, 400, 403]
+
+  # 15% - Endpoints de categorías
+  - name: "Categories API"
+    weight: 15
+    flow:
+      # Login
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # Obtener categorías
+      - get:
+          url: "/api/v1/categories"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+  # 10% - Otros endpoints protegidos
+  - name: "Other Protected Endpoints"
+    weight: 10
+    flow:
+      # Login
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # Ingredientes
+      - get:
+          url: "/api/v1/ingredients"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      # Order Status
+      - get:
+          url: "/api/v1/order-status"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      # Orders
+      - get:
+          url: "/api/v1/orders"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+```
+
+### 2. Stress Test - Enfocado en Auth (tests/load/auth-stress.yml)
+
+```yaml
+config:
+  target: 'https://api-pasteleria.vercel.app'
+  phases:
+    # Test específico para rate limiting de auth
+    - duration: 60
+      arrivalRate: 100
+      name: "Auth rate limit test"
+    
+    # Pico de autenticación
+    - duration: 120
+      arrivalRate: 200
+      name: "Auth stress peak"
+
+  variables:
+    adminEmail: "ariadna.admin@pasteleria.com"
+    adminPassword: "AdminSecurePass123!"
+
+scenarios:
+  # 80% - Login válido (testing rate limiting)
+  - name: "Valid Login Stress"
+    weight: 80
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          expect:
+            - statusCode: [200, 429] # 429 = Rate limited
+
+  # 20% - Login inválido (testing security)
+  - name: "Invalid Login Attempts"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "hacker@test.com"
+            password: "password123"
+          expect:
+            - statusCode: [401, 429]
+```
+
+### 3. GraphQL Load Test (tests/load/graphql-test.yml)
+
+```yaml
+config:
+  target: 'https://api-pasteleria.vercel.app'
+  phases:
+    - duration: 60
+      arrivalRate: 50
+      name: "GraphQL load test"
+
+  variables:
+    adminEmail: "ariadna.admin@pasteleria.com"
+    adminPassword: "AdminSecurePass123!"
+
+scenarios:
+  - name: "GraphQL Queries"
+    weight: 100
+    flow:
+      # Login para obtener token
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # Query GraphQL para productos
+      - post:
+          url: "/graphql"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+            Content-Type: "application/json"
+          json:
+            query: |
+              query GetProducts {
+                products {
+                  id
+                  name
+                  price
+                  description
+                }
+              }
+          expect:
+            - statusCode: 200
+      
+      # Query más compleja
+      - post:
+          url: "/graphql"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+            Content-Type: "application/json"
+          json:
+            query: |
+              query GetProductById($id: ID!) {
+                product(id: $id) {
+                  id
+                  name
+                  price
+                  category {
+                    name
+                  }
+                }
+              }
+            variables:
+              id: "1"
+          expect:
+            - statusCode: 200
+```
+
+### 4. Rate Limiting Test (tests/load/rate-limit-test.yml)
+
+```yaml
+config:
+  target: 'https://api-pasteleria.vercel.app'
+  phases:
+    # Burst rápido para activar rate limiting
+    - duration: 10
+      arrivalRate: 500
+      name: "Rate limit trigger"
+    
+    # Mantener presión
+    - duration: 30
+      arrivalRate: 200
+      name: "Sustained rate limit test"
+
+scenarios:
+  # Test específico para verificar que rate limiting funciona
+  - name: "Rate Limit Verification"
+    weight: 100
+    flow:
+      # Múltiples requests rápidos al mismo endpoint
+      - loop:
+          - post:
+              url: "/api/auth/login"
+              json:
+                email: "test@test.com"
+                password: "test123"
+              expect:
+                - statusCode: [200, 401, 429] # 429 = Rate limited
+        count: 10
+```
+
+### 5. Mixed Workload Test (tests/load/realistic-workload.yml)
+
+```yaml
+config:
+  target: 'https://api-pasteleria.vercel.app'
+  phases:
+    # Simulación de día normal de trabajo
+    - duration: 300  # 5 minutos
+      arrivalRate: 30
+      name: "Normal business day"
+
+  variables:
+    adminEmail: "ariadna.admin@pasteleria.com"
+    adminPassword: "AdminSecurePass123!"
+
+scenarios:
+  # 40% - Consultas de productos (clientes navegando)
+  - name: "Product Browsing"
+    weight: 40
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      - loop:
+          - get:
+              url: "/api/v1/products"
+              headers:
+                Authorization: "Bearer {{ authToken }}"
+          - think: 2  # Pausa 2 segundos (usuario leyendo)
+          - get:
+              url: "/api/v1/categories"
+              headers:
+                Authorization: "Bearer {{ authToken }}"
+        count: 3
+
+  # 25% - Administración de productos
+  - name: "Admin Operations"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # CRUD operations
+      - get:
+          url: "/api/v1/products"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+      
+      - post:
+          url: "/api/v1/products"
+          headers:

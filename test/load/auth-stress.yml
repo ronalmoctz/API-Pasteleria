@@ -1,0 +1,41 @@
+config:
+  target: 'https://api-pasteleria.vercel.app'
+  phases:
+    # Test específico para rate limiting de auth
+    - duration: 60
+      arrivalRate: 100
+      name: "Auth rate limit test"
+    
+    # Pico de autenticación
+    - duration: 120
+      arrivalRate: 200
+      name: "Auth stress peak"
+
+  variables:
+    adminEmail: "ariadna.admin@pasteleria.com"
+    adminPassword: "AdminSecurePass123!"
+
+scenarios:
+  # 80% - Login válido (testing rate limiting)
+  - name: "Valid Login Stress"
+    weight: 80
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          expect:
+            - statusCode: [200, 429] # 429 = Rate limited
+
+  # 20% - Login inválido (testing security)
+  - name: "Invalid Login Attempts"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "hacker@test.com"
+            password: "password123"
+          expect:
+            - statusCode: [401, 429]

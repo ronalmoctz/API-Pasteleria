@@ -1,0 +1,127 @@
+config:
+  target: 'https://api-pasteleria.vercel.app'
+  phases:
+    # Simulación de día normal de trabajo
+    - duration: 300  # 5 minutos
+      arrivalRate: 30
+      name: "Normal business day"
+
+  variables:
+    adminEmail: "ariadna.admin@pasteleria.com"
+    adminPassword: "AdminSecurePass123!"
+
+scenarios:
+  # 40% - Consultas de productos (clientes navegando)
+  - name: "Product Browsing"
+    weight: 40
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      - loop:
+          - get:
+              url: "/api/v1/products"
+              headers:
+                Authorization: "Bearer {{ authToken }}"
+          - think: 2  # Pausa 2 segundos (usuario leyendo)
+          - get:
+              url: "/api/v1/categories"
+              headers:
+                Authorization: "Bearer {{ authToken }}"
+        count: 3
+
+  # 25% - Administración de productos
+  - name: "Admin Operations"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # CRUD operations
+      - get:
+          url: "/api/v1/products"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+      
+      - post:
+          url: "/api/v1/products"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          json:
+            name: "Test Product {{ $randomString() }}"
+            price: "{{ $randomInt(50, 300) }}"
+            description: "Generated during load test"
+            category_id: 1
+
+  # 20% - Gestión de órdenes
+  - name: "Order Management"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      - get:
+          url: "/api/v1/orders"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+      
+      - get:
+          url: "/api/v1/order-status"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+
+  # 10% - GraphQL queries
+  - name: "GraphQL Usage"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      - post:
+          url: "/graphql"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          json:
+            query: "{ products { id name price } }"
+
+  # 5% - Usuarios sin autorización (testing security)
+  - name: "Unauthorized Attempts"
+    weight: 5
+    flow:
+      # Intentar acceder sin token
+      - get:
+          url: "/api/v1/products"
+          expect:
+            - statusCode: [401, 403]
+      
+      # Token inválido
+      - get:
+          url: "/api/v1/products"
+          headers:
+            Authorization: "Bearer invalid_token_here"
+          expect:
+            - statusCode: [401, 403]
