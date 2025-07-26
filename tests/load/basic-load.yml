@@ -1,0 +1,170 @@
+config:
+  target: 'https://api-pasteleria.vercel.app'
+  phases:
+    # Warm-up: 10 usuarios por 30 segundos
+    - duration: 30
+      arrivalRate: 10
+      name: "Warming up"
+    
+    # Load test: 50 usuarios por 2 minutos
+    - duration: 120
+      arrivalRate: 50
+      name: "Normal load"
+    
+    # Peak load: 100 usuarios por 1 minuto
+    - duration: 60
+      arrivalRate: 100
+      name: "Peak load"
+    
+    # Cool down: 10 usuarios por 30 segundos
+    - duration: 30
+      arrivalRate: 10
+      name: "Cool down"
+
+  # Variables globales para testing
+  variables:
+    adminEmail: "ariadna.admin@pasteleria.com"
+    adminPassword: "AdminSecurePass123!"
+    testEmail: "test@pasteleria.com"
+    testPassword: "test123"
+
+scenarios:
+  # 20% - Endpoints públicos (sin auth)
+  - name: "Public Endpoints"
+    weight: 20
+    flow:
+      - get:
+          url: "/"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/docs-info"
+          expect:
+            - statusCode: 200
+
+  # 30% - Proceso de autenticación
+  - name: "Authentication Flow"
+    weight: 30
+    flow:
+      # Login exitoso
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # Intentar login con credenciales incorrectas
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "wrong@email.com"
+            password: "wrongpassword"
+          expect:
+            - statusCode: [401, 400]
+
+  # 25% - Endpoints de productos (requieren auth)
+  - name: "Products API"
+    weight: 25
+    flow:
+      # Hacer login primero
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # Obtener todos los productos
+      - get:
+          url: "/api/v1/products"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      # Obtener producto específico
+      - get:
+          url: "/api/v1/products/1"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: [200, 404]
+      
+      # Crear producto nuevo (solo admin)
+      - post:
+          url: "/api/v1/products"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+            Content-Type: "application/json"
+          json:
+            name: "Pastel Test {{ $randomString() }}"
+            description: "Pastel generado en load test"
+            price: "{{ $randomInt(100, 500) }}"
+            category_id: 1
+          expect:
+            - statusCode: [201, 400, 403]
+
+  # 15% - Endpoints de categorías
+  - name: "Categories API"
+    weight: 15
+    flow:
+      # Login
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # Obtener categorías
+      - get:
+          url: "/api/v1/categories"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+  # 10% - Otros endpoints protegidos
+  - name: "Other Protected Endpoints"
+    weight: 10
+    flow:
+      # Login
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # Ingredientes
+      - get:
+          url: "/api/v1/ingredients"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      # Order Status
+      - get:
+          url: "/api/v1/order-status"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      # Orders

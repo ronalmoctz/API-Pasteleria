@@ -9,11 +9,12 @@
     "build": "tsc && tsc-alias",
     "start": "node dist/app.js",
     "lint": "eslint .",
-    "test:load": "artillery run tests/load/basic-load.yml",
-    "test:stress": "artillery run tests/load/stress-test.yml",
-    "test:spike": "artillery run tests/load/spike-test.yml",
-    "test:load:local": "artillery run tests/load/local-test.yml",
-    "test:load:report": "artillery run --output tests/reports/load-report.json tests/load/basic-load.yml"
+    "test:load:basic": "artillery run tests/load/basic-load.yml",
+    "test:load:auth": "artillery run tests/load/auth-stress.yml",
+    "test:load:graphql": "artillery run tests/load/graphql-test.yml",
+    "test:load:rate-limit": "artillery run tests/load/rate-limit-test.yml",
+    "test:load:realistic": "artillery run tests/load/realistic-workload.yml",
+    "test:load:report": "artillery run --output tests/reports/load-report.json tests/load/basic-load.yml && node tests/scripts/analyze-results.js tests/reports/load-report.json"
   },
   "keywords": [],
   "author": "",

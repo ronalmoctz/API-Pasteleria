@@ -1,7 +1,6 @@
 import { response } from "express";
 
 export function setAuthToken(requestParams, context, events, done){
-    // Check if the requestParams object has an 'authToken' property
     const users = [
         {email: "ariadna.admin@pasteleria.com", password:"AdminSecurePass123!"},
         {email: "carlos.customer@pasteleria.com", password:"ClienteConfiable456*"},
@@ -13,7 +12,7 @@ export function setAuthToken(requestParams, context, events, done){
     return done();
 }
 
-export function setAuthToken(requestParams, context, events, done) {
+export function handleAuthResponse(requestParams, response, context, events, done) {
     if (response.statusCode >= 400){
         console.log(`Error: ${response.statusCode} - Unable to set auth token`);
     }
