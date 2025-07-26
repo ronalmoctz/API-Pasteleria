@@ -1,27 +1,31 @@
 import fs from 'fs';
-import path from 'path';
 
 function analyzeLoadTestResults(reportPath) {
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
   
+  const latency = report.aggregate.latency || {};
+  const counters = report.aggregate.counters || {};
+  const rates = report.aggregate.rates || {};
+
   const analysis = {
-    summary: {
-      totalRequests: report.aggregate.counters['http.requests'],
-      successfulRequests: report.aggregate.counters['http.requests'] - (report.aggregate.counters['http.request_timeout'] || 0),
-      failedRequests: report.aggregate.counters['errors.ECONNRESET'] || 0,
-      averageResponseTime: report.aggregate.latency.mean,
-      p95ResponseTime: report.aggregate.latency.p95,
-      p99ResponseTime: report.aggregate.latency.p99,
-      requestsPerSecond: report.aggregate.rates['http.request_rate']
-    },
-    performance: {
-      excellent: report.aggregate.latency.p95 < 200,
-      good: report.aggregate.latency.p95 < 500,
-      acceptable: report.aggregate.latency.p95 < 1000,
-      poor: report.aggregate.latency.p95 >= 1000
-    },
-    recommendations: []
-  };
+  summary: {
+    totalRequests: counters['http.requests'] || 0,
+    successfulRequests: (counters['http.requests'] || 0) - (counters['http.request_timeout'] || 0),
+    failedRequests: counters['errors.ECONNRESET'] || 0,
+    averageResponseTime: latency.mean || 0,
+    p95ResponseTime: latency.p95 || 0,
+    p99ResponseTime: latency.p99 || 0,
+    requestsPerSecond: rates['http.request_rate'] || 0,
+    timestamp: new Date().toISOString()
+  },
+  performance: {
+    excellent: (latency.p95 || Infinity) < 200,
+    good: (latency.p95 || Infinity) < 500,
+    acceptable: (latency.p95 || Infinity) < 1000,
+    poor: (latency.p95 || 0) >= 1000
+  },
+  recommendations: []
+};
   
   // Generar recomendaciones
   if (analysis.performance.poor) {
