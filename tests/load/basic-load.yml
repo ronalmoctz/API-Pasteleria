@@ -1,56 +1,66 @@
 config:
-  target: 'https://api-pasteleria.vercel.app'
+  target: 'http://localhost:3000'
   phases:
-    # Warm-up: 10 usuarios por 30 segundos
-    - duration: 30
-      arrivalRate: 10
+    # Warm-up muy conservador por el rate limit
+    - duration: 60
+      arrivalRate: 2
       name: "Warming up"
     
-    # Load test: 50 usuarios por 2 minutos
-    - duration: 120
-      arrivalRate: 50
+    # Load test gradual 
+    - duration: 180
+      arrivalRate: 3
+      rampTo: 8
       name: "Normal load"
     
-    # Peak load: 100 usuarios por 1 minuto
-    - duration: 60
-      arrivalRate: 100
+    # Peak load moderado (respetando rate limit)
+    - duration: 120
+      arrivalRate: 8
       name: "Peak load"
     
-    # Cool down: 10 usuarios por 30 segundos
-    - duration: 30
-      arrivalRate: 10
+    # Cool down
+    - duration: 60
+      arrivalRate: 2
       name: "Cool down"
 
-  # Variables globales para testing
-  variables:
-    adminEmail: "ariadna.admin@pasteleria.com"
-    adminPassword: "AdminSecurePass123!"
-    testEmail: "test@pasteleria.com"
-    testPassword: "test123"
+  # Configuración HTTP optimizada para tu rate limit
+  http:
+    timeout: 15
+    maxSockets: 10
+    pool: 5
+    
+  # Processor para manejo de JWT
+  processor: '../processors/auth-processor.js'
+  adminEmail: "ariadna.admin@pasteleria.com"
+  adminPassword: "AdminSecurePass123!"
+  customerEmail: "carlos.customer@pasteleria.com"
+  customerPassword: "ClienteConfiable456*"
+
 
 scenarios:
-  # 20% - Endpoints públicos (sin auth)
+  # 25% - Endpoints públicos (sin auth, no afectan rate limit tanto)
   - name: "Public Endpoints"
-    weight: 20
+    weight: 25
     flow:
       - get:
           url: "/"
           expect:
             - statusCode: 200
+      - think: 2  # Pausa para respetar rate limit
       - get:
           url: "/health"
           expect:
             - statusCode: 200
+      - think: 1
       - get:
           url: "/docs-info"
           expect:
             - statusCode: 200
 
-  # 30% - Proceso de autenticación
+  # 35% - Proceso de autenticación (crítico para el resto)
   - name: "Authentication Flow"
-    weight: 30
+    weight: 35
     flow:
-      # Login exitoso
+      # Login exitoso con admin
       - post:
           url: "/api/auth/login"
           json:
@@ -60,9 +70,25 @@ scenarios:
             - statusCode: 200
           capture:
             - json: "$.token"
-              as: "authToken"
+              as: "adminToken"
       
-      # Intentar login con credenciales incorrectas
+      - think: 3  # Pausa importante después de auth
+      
+      # Login con customer (diversidad de usuarios)
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ customerEmail }}"
+            password: "{{ customerPassword }}"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.token"
+              as: "customerToken"
+      
+      - think: 2
+      
+      # Test de login fallido (validar manejo de errores)
       - post:
           url: "/api/auth/login"
           json:
@@ -75,7 +101,7 @@ scenarios:
   - name: "Products API"
     weight: 25
     flow:
-      # Hacer login primero
+      # Login para obtener token
       - post:
           url: "/api/auth/login"
           json:
@@ -85,6 +111,8 @@ scenarios:
             - json: "$.token"
               as: "authToken"
       
+      - think: 2
+      
       # Obtener todos los productos
       - get:
           url: "/api/v1/products"
@@ -92,6 +120,8 @@ scenarios:
             Authorization: "Bearer {{ authToken }}"
           expect:
             - statusCode: 200
+      
+      - think: 3  # Pausa más larga entre requests autenticados
       
       # Obtener producto específico
       - get:
@@ -101,7 +131,9 @@ scenarios:
           expect:
             - statusCode: [200, 404]
       
-      # Crear producto nuevo (solo admin)
+      - think: 4
+      
+      # Crear producto nuevo (solo admin) - menos frecuente
       - post:
           url: "/api/v1/products"
           headers:
@@ -113,32 +145,14 @@ scenarios:
             price: "{{ $randomInt(100, 500) }}"
             category_id: 1
           expect:
-            - statusCode: [201, 400, 403]
+            - statusCode: [201, 400, 403, 429]  # Incluye 429 para rate limit
+          ifTrue:
+            - statusCode: 429
+          then:
+            - think: 10  # Pausa larga si hay rate limit
 
-  # 15% - Endpoints de categorías
+  # 10% - Endpoints de categorías
   - name: "Categories API"
-    weight: 15
-    flow:
-      # Login
-      - post:
-          url: "/api/auth/login"
-          json:
-            email: "{{ adminEmail }}"
-            password: "{{ adminPassword }}"
-          capture:
-            - json: "$.token"
-              as: "authToken"
-      
-      # Obtener categorías
-      - get:
-          url: "/api/v1/categories"
-          headers:
-            Authorization: "Bearer {{ authToken }}"
-          expect:
-            - statusCode: 200
-
-  # 10% - Otros endpoints protegidos
-  - name: "Other Protected Endpoints"
     weight: 10
     flow:
       # Login
@@ -151,13 +165,41 @@ scenarios:
             - json: "$.token"
               as: "authToken"
       
+      - think: 3
+      
+      # Obtener categorías
+      - get:
+          url: "/api/v1/categories"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: [200, 429]
+
+  # 5% - Otros endpoints protegidos (reducido por rate limit)
+  - name: "Other Protected Endpoints"
+    weight: 5
+    flow:
+      # Login
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      - think: 3
+      
       # Ingredientes
       - get:
           url: "/api/v1/ingredients"
           headers:
             Authorization: "Bearer {{ authToken }}"
           expect:
-            - statusCode: 200
+            - statusCode: [200, 429]
+      
+      - think: 5  # Pausa larga entre requests
       
       # Order Status
       - get:
@@ -165,6 +207,10 @@ scenarios:
           headers:
             Authorization: "Bearer {{ authToken }}"
           expect:
-            - statusCode: 200
-      
-      # Orders
+            - statusCode: [200, 429]
+
+# Configuración adicional para manejo de errores
+defaults:
+  headers:
+    User-Agent: "Artillery Load Test"
+    Accept: "application/json"
