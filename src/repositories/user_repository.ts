@@ -5,9 +5,20 @@ import { registerUserSchema, loginSchema, publicUserSchema } from "@/schemas/use
 import type { RegisterUserDTO, LoginDTO, PublicUserDTO } from "@/schemas/user_schema.js";
 import { signToken } from "@/utils/jwt.js";
 import { hashPassword, comparePassword } from "@/utils/bcrypt.js";
+import { cache } from '@/utils/chache.js';
+
+
+const USER_BY_EMAIL_CACHE_KEY = (email: string) => `users:email:${email}`;
 
 export const UserRepository = {
     async findByEmail(email: string): Promise<User | null> {
+        const cacheKey = USER_BY_EMAIL_CACHE_KEY(email);
+        const cached = cache.get<User>(cacheKey);
+        if (cached) {
+            logger.debug("Usuario obtenido desde cache", { email });
+            return cached;
+        }
+
         try {
             const result = await turso.execute({
                 sql: `SELECT * FROM users WHERE email = ?`,
@@ -30,7 +41,9 @@ export const UserRepository = {
                 updated_at: String(row.updated_at),
             };
 
-            logger.debug("Usuario encontrado por email", { email });
+            // ✅ Guardamos en cache
+            cache.set(cacheKey, user, 60);
+            logger.debug("Usuario encontrado y cacheado", { email });
             return user;
         } catch (err) {
             logger.error("Error buscando usuario por email", { error: err, email });
@@ -65,6 +78,10 @@ export const UserRepository = {
         });
 
         const user = result.rows[0];
+
+        // ✅ Invalidar cache si hubiera alguna entrada "precargada"
+        cache.del(USER_BY_EMAIL_CACHE_KEY(email));
+
         logger.info("Usuario registrado", { email });
 
         return publicUserSchema.parse(user);
@@ -76,7 +93,6 @@ export const UserRepository = {
             logger.warn("Datos de login inválidos", { error: parsed.error });
             throw new Error("Datos de login inválidos");
         }
-
 
         const { email, password } = parsed.data;
         const user = await this.findByEmail(email);

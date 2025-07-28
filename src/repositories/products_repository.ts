@@ -1,4 +1,3 @@
-// src/repositories/products_repository.ts
 import { cache } from '@/utils/chache.js';
 import { turso } from '@/config/tursoClient.js';
 import { logger } from '@/utils/logger.js';

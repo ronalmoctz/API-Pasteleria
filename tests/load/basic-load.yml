@@ -3,7 +3,7 @@ config:
   phases:
     # Warm-up muy conservador por el rate limit
     - duration: 60
-      arrivalRate: 2
+      arrivalRate: 5
       name: "Warming up"
     
     # Load test gradual 
@@ -35,7 +35,6 @@ config:
   customerEmail: "carlos.customer@pasteleria.com"
   customerPassword: "ClienteConfiable456*"
 
-
 scenarios:
   # 25% - Endpoints públicos (sin auth, no afectan rate limit tanto)
   - name: "Public Endpoints"
@@ -45,7 +44,7 @@ scenarios:
           url: "/"
           expect:
             - statusCode: 200
-      - think: 2  # Pausa para respetar rate limit
+      - think: 2
       - get:
           url: "/health"
           expect:
@@ -69,10 +68,10 @@ scenarios:
           expect:
             - statusCode: 200
           capture:
-            - json: "$.token"
+            - json: "$.data.token"  
               as: "adminToken"
       
-      - think: 3  # Pausa importante después de auth
+      - think: 3
       
       # Login con customer (diversidad de usuarios)
       - post:
@@ -83,7 +82,7 @@ scenarios:
           expect:
             - statusCode: 200
           capture:
-            - json: "$.token"
+            - json: "$.data.token"  # ✅ CORREGIDO: Ruta correcta al token
               as: "customerToken"
       
       - think: 2
@@ -108,7 +107,7 @@ scenarios:
             email: "{{ adminEmail }}"
             password: "{{ adminPassword }}"
           capture:
-            - json: "$.token"
+            - json: "$.data.token"  # ✅ CORREGIDO
               as: "authToken"
       
       - think: 2
@@ -121,7 +120,7 @@ scenarios:
           expect:
             - statusCode: 200
       
-      - think: 3  # Pausa más larga entre requests autenticados
+      - think: 3
       
       # Obtener producto específico
       - get:
@@ -133,7 +132,7 @@ scenarios:
       
       - think: 4
       
-      # Crear producto nuevo (solo admin) - menos frecuente
+      # Crear producto nuevo (solo admin)
       - post:
           url: "/api/v1/products"
           headers:
@@ -145,11 +144,11 @@ scenarios:
             price: "{{ $randomInt(100, 500) }}"
             category_id: 1
           expect:
-            - statusCode: [201, 400, 403, 429]  # Incluye 429 para rate limit
+            - statusCode: [201, 400, 403, 429]
           ifTrue:
             - statusCode: 429
           then:
-            - think: 10  # Pausa larga si hay rate limit
+            - think: 10
 
   # 10% - Endpoints de categorías
   - name: "Categories API"
@@ -162,7 +161,7 @@ scenarios:
             email: "{{ adminEmail }}"
             password: "{{ adminPassword }}"
           capture:
-            - json: "$.token"
+            - json: "$.data.token"  # ✅ CORREGIDO
               as: "authToken"
       
       - think: 3
@@ -175,8 +174,8 @@ scenarios:
           expect:
             - statusCode: [200, 429]
 
-  # 5% - Otros endpoints protegidos (reducido por rate limit)
-  - name: "Other Protected Endpoints"
+  # 5% - Ingredientes
+  - name: "Ingredients API"
     weight: 5
     flow:
       # Login
@@ -186,7 +185,7 @@ scenarios:
             email: "{{ adminEmail }}"
             password: "{{ adminPassword }}"
           capture:
-            - json: "$.token"
+            - json: "$.data.token"  # ✅ CORREGIDO
               as: "authToken"
       
       - think: 3
@@ -198,8 +197,22 @@ scenarios:
             Authorization: "Bearer {{ authToken }}"
           expect:
             - statusCode: [200, 429]
+
+  # 10% - Order Status y Orders API
+  - name: "Orders API"
+    weight: 10
+    flow:
+      # Login con admin para acceder a orders
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ adminEmail }}"
+            password: "{{ adminPassword }}"
+          capture:
+            - json: "$.data.token"
+              as: "authToken"
       
-      - think: 5  # Pausa larga entre requests
+      - think: 3
       
       # Order Status
       - get:
@@ -208,6 +221,16 @@ scenarios:
             Authorization: "Bearer {{ authToken }}"
           expect:
             - statusCode: [200, 429]
+      
+      - think: 5
+      
+      # Obtener todas las órdenes (requiere admin)
+      - get:
+          url: "/api/v1/orders"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: [200, 403, 429]  # 403 si no es admin
 
 # Configuración adicional para manejo de errores
 defaults:

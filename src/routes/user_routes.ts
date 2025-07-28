@@ -24,7 +24,7 @@ const router = Router();
  *       400:
  *         description: Error en datos de registro
  */
-router.post('/auth/register', apiLimiter, authenticateToken, requireAdmin, register);
+router.post('/auth/register', apiLimiter, requireAdmin, register);
 
 /**
  * @openapi
