@@ -2,82 +2,83 @@ import { ProductRepository } from "@/repositories/products_repository.js";
 import { AppError } from "@/utils/app_error.js";
 import { logger } from "@/utils/logger.js";
 import type { CreateProduct, UpdateProduct, Product } from "@/schemas/products_schema.js";
+import type { ICacheStrategy } from "@/interfaces/cache_strategy_interface.js";
 
 export class ProductService {
 
-    private repository = new ProductRepository()
+    private repository: ProductRepository;
 
-    async create(data: CreateProduct): Promise<Product> {
+    constructor(cacheStrategy: ICacheStrategy) {
+        this.repository = new ProductRepository(cacheStrategy);
+    }
+
+    async create(productData: CreateProduct): Promise<Product> {
         try {
-            logger.debug("Creando Producto", {
-                name: data.name,
-                sku: data.sku,
-                price: data.price,
-                category_id: data.category_id
+            logger.debug("Creating product", {
+                name: productData.name,
+                sku: productData.sku,
+                price: productData.price,
+                categoryId: productData.category_id
             })
 
-            const product = await this.repository.create(data)
+            const newProduct = await this.repository.create(productData)
 
-            logger.info("Producto creado con éxito", {
-                id: product.id,
-                name: product.name,
-                sku: product.sku
+            logger.info("Product created successfully", {
+                productId: newProduct.id,
+                name: newProduct.name,
+                sku: newProduct.sku
             });
-            return product
+            return newProduct
         } catch (err) {
-            logger.error("Error al crear el producto", {
+            logger.error("Failed to create product", {
                 error: err instanceof Error ? err.message : err,
                 stack: err instanceof Error ? err.stack : undefined,
-                input_data: {
-                    name: data.name,
-                    sku: data.sku,
-                    category_id: data.category_id
-                }
+                productName: productData.name,
+                categoryId: productData.category_id
             });
 
-            if (err instanceof Error && err.message.includes('Producto creado no válido')) {
-                throw new AppError("Datos del producto no válidos", 400);
+            if (err instanceof Error && err.message.includes('Failed to create product')) {
+                throw new AppError("Invalid product data", 400);
             }
 
-            throw new AppError("Error al crear el producto", 400);
+            throw new AppError("Failed to create product", 400);
         }
     }
 
     async findAll(): Promise<Product[]> {
-        logger.debug("Obteniendo todos los productos");
+        logger.debug("Fetching all products");
         try {
-            const products = await this.repository.findAll();
+            const productList = await this.repository.findAll();
 
-            logger.info("Productos obtenidos exitosamente", {
-                count: products.length,
-                from_cache: products.length > 0 ? "posible" : "bd"
+            logger.info("Products retrieved successfully", {
+                count: productList.length
             });
 
-            return products;
+            return productList;
         } catch (err) {
-            logger.error("Error al obtener productos", {
+            logger.error("Failed to fetch products", {
                 error: err instanceof Error ? err.message : err,
                 stack: err instanceof Error ? err.stack : undefined
             });
-            throw new AppError("Error al obtener productos", 500);
+            throw new AppError("Failed to fetch products", 500);
         }
     }
 
-    async findById(id: number): Promise<Product> {
-        logger.debug("Buscando producto por ID", { id });
+    async findById(productId: number): Promise<Product> {
+        logger.debug("Finding product by ID", { productId });
 
         try {
-            const product = await this.repository.findById(id);
+            const product = await this.repository.findById(productId);
 
             if (!product) {
-                logger.warn("Producto no encontrado", { id });
-                throw new AppError("Producto no encontrado", 404);
+                logger.warn("Product not found", { productId });
+                throw new AppError("Product not found", 404);
             }
 
-            logger.debug("Producto encontrado", {
-                id: product.id,
+            logger.debug("Product found", {
+                productId: product.id,
                 name: product.name,
-                available: product.is_available
+                isAvailable: product.is_available
             });
 
             return product;
@@ -86,154 +87,154 @@ export class ProductService {
                 throw err; // Re-lanzar AppError sin modificar
             }
 
-            logger.error("Error al buscar producto por ID", {
-                id,
+            logger.error("Failed to find product by ID", {
+                productId,
                 error: err instanceof Error ? err.message : err,
                 stack: err instanceof Error ? err.stack : undefined
             });
 
-            throw new AppError("Error al buscar producto", 500);
+            throw new AppError("Failed to find product", 500);
         }
     }
 
-    async update(id: number, data: UpdateProduct): Promise<Product> {
-        logger.debug("Actualizando producto", {
-            id
+    async update(productId: number, updateData: UpdateProduct): Promise<Product> {
+        logger.debug("Updating product", {
+            productId
         });
 
         try {
-            const updated = await this.repository.update(id, data);
+            const updatedProduct = await this.repository.update(productId, updateData);
 
-            if (!updated) {
-                logger.warn("No se pudo actualizar el producto", { id });
-                throw new AppError("No se pudo actualizar el producto", 404);
+            if (!updatedProduct) {
+                logger.warn("Product not found for update", { productId });
+                throw new AppError("Product not found", 404);
             }
 
-            logger.info("Producto actualizado exitosamente", {
-                id: updated.id,
-                name: updated.name,
+            logger.info("Product updated successfully", {
+                productId: updatedProduct.id,
+                name: updatedProduct.name,
             });
 
-            return updated;
+            return updatedProduct;
         } catch (err) {
             if (err instanceof AppError) {
                 throw err;
             }
 
-            logger.error("Error al actualizar producto", {
-                id,
-                update_data: data,
+            logger.error("Failed to update product", {
+                productId,
+                updateData,
                 error: err instanceof Error ? err.message : err,
                 stack: err instanceof Error ? err.stack : undefined
             });
 
-            throw new AppError("Error al actualizar producto", 500);
+            throw new AppError("Failed to update product", 500);
         }
     }
 
-    async delete(id: number): Promise<void> {
-        logger.debug("Eliminando producto", { id });
+    async delete(productId: number): Promise<void> {
+        logger.debug("Deleting product", { productId });
 
         try {
-            const deleted = await this.repository.delete(id);
+            const wasDeleted = await this.repository.delete(productId);
 
-            if (!deleted) {
-                logger.warn("No se pudo eliminar el producto", { id });
-                throw new AppError("No se pudo eliminar el producto", 404);
+            if (!wasDeleted) {
+                logger.warn("Product not found for deletion", { productId });
+                throw new AppError("Product not found", 404);
             }
 
-            logger.info("Producto eliminado exitosamente", { id });
+            logger.info("Product deleted successfully", { productId });
         } catch (err) {
             if (err instanceof AppError) {
                 throw err;
             }
 
-            logger.error("Error al eliminar producto", {
-                id,
+            logger.error("Failed to delete product", {
+                productId,
                 error: err instanceof Error ? err.message : err,
                 stack: err instanceof Error ? err.stack : undefined
             });
 
-            throw new AppError("Error al eliminar producto", 500);
+            throw new AppError("Failed to delete product", 500);
         }
     }
 
     // Método adicional para búsqueda (útil para APIs REST)
-    async search(query: string): Promise<Product[]> {
-        logger.debug("Buscando productos", { query });
+    async search(searchTerm: string): Promise<Product[]> {
+        logger.debug("Searching products", { searchTerm });
 
         try {
-            const products = await this.repository.findAll();
+            const allProducts = await this.repository.findAll();
 
-            const filtered = products.filter(product =>
-                product.name.toLowerCase().includes(query.toLowerCase()) ||
-                product.sku?.toLowerCase().includes(query.toLowerCase()) ||
-                product.description?.toLowerCase().includes(query.toLowerCase())
+            const searchResults = allProducts.filter(product =>
+                product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                product.description?.toLowerCase().includes(searchTerm.toLowerCase())
             );
 
-            logger.info("Búsqueda de productos completada", {
-                query,
-                total_products: products.length,
-                filtered_count: filtered.length
+            logger.info("Product search completed", {
+                searchTerm,
+                totalProducts: allProducts.length,
+                resultsCount: searchResults.length
             });
 
-            return filtered;
+            return searchResults;
         } catch (err) {
-            logger.error("Error en búsqueda de productos", {
-                query,
+            logger.error("Failed to search products", {
+                searchTerm,
                 error: err instanceof Error ? err.message : err,
                 stack: err instanceof Error ? err.stack : undefined
             });
 
-            throw new AppError("Error en búsqueda de productos", 500);
+            throw new AppError("Failed to search products", 500);
         }
     }
 
     // Método para obtener productos por disponibilidad
     async findByAvailability(isAvailable: boolean): Promise<Product[]> {
-        logger.debug("Buscando productos por disponibilidad", { isAvailable });
+        logger.debug("Filtering products by availability", { isAvailable });
 
         try {
-            const products = await this.repository.findAll();
-            const filtered = products.filter(product => product.is_available === isAvailable);
+            const allProducts = await this.repository.findAll();
+            const availableProducts = allProducts.filter(product => product.is_available === isAvailable);
 
-            logger.info("Productos filtrados por disponibilidad", {
+            logger.info("Products filtered by availability", {
                 isAvailable,
-                count: filtered.length
+                count: availableProducts.length
             });
 
-            return filtered;
+            return availableProducts;
         } catch (err) {
-            logger.error("Error al filtrar productos por disponibilidad", {
+            logger.error("Failed to filter products by availability", {
                 isAvailable,
                 error: err instanceof Error ? err.message : err
             });
 
-            throw new AppError("Error al filtrar productos", 500);
+            throw new AppError("Failed to filter products", 500);
         }
     }
 
     // Método para obtener productos por categoría
     async findByCategory(categoryId: number): Promise<Product[]> {
-        logger.debug("Buscando productos por categoría", { categoryId });
+        logger.debug("Filtering products by category", { categoryId });
 
         try {
-            const products = await this.repository.findAll();
-            const filtered = products.filter(product => product.category_id === categoryId);
+            const allProducts = await this.repository.findAll();
+            const categoryProducts = allProducts.filter(product => product.category_id === categoryId);
 
-            logger.info("Productos filtrados por categoría", {
+            logger.info("Products filtered by category", {
                 categoryId,
-                count: filtered.length
+                count: categoryProducts.length
             });
 
-            return filtered;
+            return categoryProducts;
         } catch (err) {
-            logger.error("Error al filtrar productos por categoría", {
+            logger.error("Failed to filter products by category", {
                 categoryId,
                 error: err instanceof Error ? err.message : err
             });
 
-            throw new AppError("Error al filtrar productos por categoría", 500);
+            throw new AppError("Failed to filter products by category", 500);
         }
     }
 

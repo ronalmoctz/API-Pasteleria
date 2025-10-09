@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
-import { OrdersService } from '@/services/orders_service.js';
+import { getOrdersService } from '@/factories/service_factory.js';
 
-const ordersService = new OrdersService();
+// Get service instance from factory (Dependency Injection)
+const ordersService = getOrdersService();
 
 /**
  * @openapi

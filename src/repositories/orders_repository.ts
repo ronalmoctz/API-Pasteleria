@@ -1,18 +1,26 @@
-import { cache } from "@/utils/chache.js";
 import { turso } from "@/config/tursoClient.js";
 import { logger } from "@/utils/logger.js";
 import type { Order } from "@/interfaces/orders_interface.js";
 import type { CreateOrder, UpdateOrder } from "@/schemas/orders_schema.js";
 import { orderSchema } from "@/schemas/orders_schema.js";
+import { BaseRepository, type Query } from "@/base/base_repository.js";
+import type { IOrdersRepository } from "@/interfaces/repositories/orders_repository_interface.js";
+import type { ICacheStrategy } from "@/interfaces/cache_strategy_interface.js";
+import { DatabaseError } from "@/errors/repository_errors.js";
 
-// Cache configuration
+/**
+ * Cache configuration for orders
+ */
 const CACHE_KEYS = {
-    ALL_ORDERS: "orders:all",
-    ORDER_BY_ID: (id: number) => `orders:id:${id}`,
-    ORDERS_BY_USER: (userId: number) => `orders:user:${userId}`,
-    ORDERS_BY_STATUS: (statusId: number) => `orders:status:${statusId}`,
+    ALL_ORDERS: "all",
+    ORDER_BY_ID: (id: number) => `id:${id}`,
+    ORDERS_BY_USER: (userId: number) => `user:${userId}`,
+    ORDERS_BY_STATUS: (statusId: number) => `status:${statusId}`,
 } as const;
 
+/**
+ * Cache TTL configuration in seconds
+ */
 const CACHE_TTL = {
     ORDERS: 180,
     SINGLE_ORDER: 300,
@@ -20,98 +28,45 @@ const CACHE_TTL = {
     STATUS_ORDERS: 300,
 } as const;
 
-// Custom error classes
-class ValidationError extends Error {
-    constructor(message: string, public details?: any) {
-        super(message);
-        this.name = 'ValidationError';
-    }
-}
+/**
+ * Repository for Order entity operations
+ * Extends BaseRepository to follow DRY principle
+ * Implements IOrdersRepository for dependency inversion
+ * 
+ * @implements {IOrdersRepository}
+ * @extends {BaseRepository<Order, CreateOrder, UpdateOrder>}
+ */
+export class OrdersRepository extends BaseRepository<Order, CreateOrder, UpdateOrder> implements IOrdersRepository {
+    protected readonly tableName = 'orders';
+    protected readonly cachePrefix = 'orders';
+    protected readonly schema = orderSchema;
 
-class DatabaseError extends Error {
-    constructor(message: string, public details?: any) {
-        super(message);
-        this.name = 'DatabaseError';
-    }
-}
-
-export class OrdersRepository {
     /**
-     * Validates order data using Zod schema
+     * Creates a new instance of OrdersRepository
+     * 
+     * @param cacheStrategy - Cache strategy implementation (injected dependency)
      */
-    private validateOrderData(rawData: any, context: string): Order {
-        const validationResult = orderSchema.safeParse(rawData);
-
-        if (!validationResult.success) {
-            const errorMessage = `Invalid order data during ${context}`;
-            logger.error(errorMessage, {
-                error: validationResult.error,
-                rawData,
-                context
-            });
-            throw new ValidationError(errorMessage, validationResult.error);
-        }
-
-        return validationResult.data;
+    constructor(cacheStrategy: ICacheStrategy) {
+        super(turso, cacheStrategy);
     }
 
     /**
-     * Invalidates all order-related cache entries
-     */
-    private invalidateOrderCache(): void {
-        cache.del(CACHE_KEYS.ALL_ORDERS);
-        logger.debug("Order cache invalidated");
-    }
-
-    /**
-     * Invalidates specific order cache entry
-     */
-    private invalidateSingleOrderCache(orderId: number): void {
-        cache.del(CACHE_KEYS.ORDER_BY_ID(orderId));
-        logger.debug("Single order cache invalidated", { orderId });
-    }
-
-    /**
-     * Invalidates user-specific order cache
-     */
-    private invalidateUserOrderCache(userId: number): void {
-        cache.del(CACHE_KEYS.ORDERS_BY_USER(userId));
-        logger.debug("User order cache invalidated", { userId });
-    }
-
-    /**
-     * Invalidates status-specific order cache
-     */
-    private invalidateStatusOrderCache(statusId: number): void {
-        cache.del(CACHE_KEYS.ORDERS_BY_STATUS(statusId));
-        logger.debug("Status order cache invalidated", { statusId });
-    }
-
-    /**
-     * Executes database query with error handling
-     */
-    private async executeDatabaseQuery(query: { sql: string; args?: any[] }, operation: string) {
-        try {
-            return await turso.execute(query);
-        } catch (databaseError) {
-            const errorMessage = `Database operation failed: ${operation}`;
-            logger.error(errorMessage, { error: databaseError, query });
-            throw new DatabaseError(errorMessage, databaseError);
-        }
-    }
-
-    /**
-     * Creates a new order
+     * Creates a new order in the database
+     * 
+     * @param orderData - Order creation data
+     * @returns Created order with generated ID
+     * @throws {DatabaseError} If creation fails
+     * @throws {ValidationError} If returned data is invalid
      */
     async create(orderData: CreateOrder): Promise<Order> {
-        const insertQuery = {
+        const insertQuery: Query = {
             sql: `INSERT INTO orders (user_id, status_id, order_date, total_amount, special_instructions) 
                   VALUES (?, ?, datetime('now'), ?, ?) RETURNING *`,
             args: [
                 orderData.user_id,
                 orderData.status_id,
                 orderData.total_amount,
-                orderData.special_instructions
+                orderData.special_instructions ?? ''
             ],
         };
 
@@ -124,15 +79,12 @@ export class OrdersRepository {
             throw new DatabaseError(errorMessage);
         }
 
-        const validatedOrder = this.validateOrderData(
-            createdOrderRow,
-            "order creation"
-        );
+        const validatedOrder = this.validateData(createdOrderRow, "order creation");
 
         // Invalidate relevant cache entries
-        this.invalidateOrderCache();
-        this.invalidateUserOrderCache(orderData.user_id);
-        this.invalidateStatusOrderCache(orderData.status_id);
+        await this.invalidateAllCache();
+        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_USER(orderData.user_id)));
+        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_STATUS(orderData.status_id)));
 
         logger.info("Order created successfully", {
             orderId: validatedOrder.id,
@@ -145,188 +97,102 @@ export class OrdersRepository {
 
     /**
      * Retrieves all orders with caching
+     * Orders are sorted by order_date in descending order
+     * 
+     * @returns Array of all orders
+     * @throws {DatabaseError} If query fails
      */
     async findAll(): Promise<Order[]> {
-        // Check cache first
-        const cachedOrders = cache.get<Order[]>(CACHE_KEYS.ALL_ORDERS);
-        if (cachedOrders) {
-            logger.debug("Orders retrieved from cache");
-            return cachedOrders;
-        }
-
-        // Query database
-        const selectQuery = {
+        const cacheKey = this.getCacheKey(CACHE_KEYS.ALL_ORDERS);
+        const query: Query = {
             sql: `SELECT * FROM orders ORDER BY order_date DESC`
         };
-        const queryResult = await this.executeDatabaseQuery(selectQuery, "fetch all orders");
 
-        const validatedOrders: Order[] = [];
-
-        for (const orderRow of queryResult.rows) {
-            try {
-                const validatedOrder = this.validateOrderData(
-                    orderRow,
-                    "bulk order retrieval"
-                );
-                validatedOrders.push(validatedOrder);
-            } catch (validationError) {
-                logger.warn("Skipping invalid order row", {
-                    error: validationError,
-                    row: orderRow
-                });
-                // Continue processing other rows instead of throwing
-            }
-        }
-
-        // Cache the results
-        cache.set(CACHE_KEYS.ALL_ORDERS, validatedOrders, CACHE_TTL.ORDERS);
-
-        logger.info("Orders retrieved from database", {
-            count: validatedOrders.length
-        });
-
-        return validatedOrders;
+        return await this.getListFromCacheOrDB(
+            cacheKey,
+            query,
+            CACHE_TTL.ORDERS,
+            "fetch all orders"
+        );
     }
 
     /**
-     * Finds order by ID with caching
+     * Finds an order by ID with caching
+     * 
+     * @param orderId - Order ID to search for
+     * @returns Order if found, null otherwise
+     * @throws {DatabaseError} If query fails
      */
     async findById(orderId: number): Promise<Order | null> {
-        const cacheKey = CACHE_KEYS.ORDER_BY_ID(orderId);
-
-        // Check cache first
-        const cachedOrder = cache.get<Order>(cacheKey);
-        if (cachedOrder) {
-            logger.debug("Order retrieved from cache", { orderId });
-            return cachedOrder;
-        }
-
-        // Query database
-        const selectQuery = {
+        const cacheKey = this.getCacheKey(CACHE_KEYS.ORDER_BY_ID(orderId));
+        const query: Query = {
             sql: `SELECT * FROM orders WHERE id = ?`,
             args: [orderId],
         };
 
-        const queryResult = await this.executeDatabaseQuery(selectQuery, "find order by ID");
-        const orderRow = queryResult.rows[0];
-
-        if (!orderRow) {
-            logger.debug("Order not found", { orderId });
-            return null;
-        }
-
-        const validatedOrder = this.validateOrderData(
-            orderRow,
-            `order retrieval by ID: ${orderId}`
+        return await this.getFromCacheOrDB(
+            cacheKey,
+            query,
+            CACHE_TTL.SINGLE_ORDER,
+            `find order by ID: ${orderId}`
         );
-
-        // Cache the result
-        cache.set(cacheKey, validatedOrder, CACHE_TTL.SINGLE_ORDER);
-
-        logger.debug("Order retrieved from database", { orderId });
-        return validatedOrder;
     }
 
     /**
-     * Finds orders by user ID with caching
+     * Finds all orders for a specific user with caching
+     * Results are sorted by order_date in descending order
+     * 
+     * @param userId - User ID to search for
+     * @returns Array of user's orders
+     * @throws {DatabaseError} If query fails
      */
     async findByUserId(userId: number): Promise<Order[]> {
-        const cacheKey = CACHE_KEYS.ORDERS_BY_USER(userId);
-
-        // Check cache first
-        const cachedOrders = cache.get<Order[]>(cacheKey);
-        if (cachedOrders) {
-            logger.debug("User orders retrieved from cache", { userId });
-            return cachedOrders;
-        }
-
-        // Query database
-        const selectQuery = {
+        const cacheKey = this.getCacheKey(CACHE_KEYS.ORDERS_BY_USER(userId));
+        const query: Query = {
             sql: `SELECT * FROM orders WHERE user_id = ? ORDER BY order_date DESC`,
             args: [userId],
         };
 
-        const queryResult = await this.executeDatabaseQuery(selectQuery, "find orders by user ID");
-        const validatedOrders: Order[] = [];
-
-        for (const orderRow of queryResult.rows) {
-            try {
-                const validatedOrder = this.validateOrderData(
-                    orderRow,
-                    `user orders retrieval for user: ${userId}`
-                );
-                validatedOrders.push(validatedOrder);
-            } catch (validationError) {
-                logger.warn("Skipping invalid order row in user search", {
-                    error: validationError,
-                    row: orderRow,
-                    userId
-                });
-            }
-        }
-
-        // Cache the results
-        cache.set(cacheKey, validatedOrders, CACHE_TTL.USER_ORDERS);
-
-        logger.debug("User orders retrieved from database", {
-            userId,
-            count: validatedOrders.length
-        });
-
-        return validatedOrders;
+        return await this.getListFromCacheOrDB(
+            cacheKey,
+            query,
+            CACHE_TTL.USER_ORDERS,
+            `find orders by user ID: ${userId}`
+        );
     }
 
     /**
-     * Finds orders by status ID with caching
+     * Finds all orders with a specific status with caching
+     * Results are sorted by order_date in descending order
+     * 
+     * @param statusId - Status ID to search for
+     * @returns Array of orders with specified status
+     * @throws {DatabaseError} If query fails
      */
     async findByStatus(statusId: number): Promise<Order[]> {
-        const cacheKey = CACHE_KEYS.ORDERS_BY_STATUS(statusId);
-
-        // Check cache first
-        const cachedOrders = cache.get<Order[]>(cacheKey);
-        if (cachedOrders) {
-            logger.debug("Status orders retrieved from cache", { statusId });
-            return cachedOrders;
-        }
-
-        // Query database
-        const selectQuery = {
+        const cacheKey = this.getCacheKey(CACHE_KEYS.ORDERS_BY_STATUS(statusId));
+        const query: Query = {
             sql: `SELECT * FROM orders WHERE status_id = ? ORDER BY order_date DESC`,
             args: [statusId],
         };
 
-        const queryResult = await this.executeDatabaseQuery(selectQuery, "find orders by status");
-        const validatedOrders: Order[] = [];
-
-        for (const orderRow of queryResult.rows) {
-            try {
-                const validatedOrder = this.validateOrderData(
-                    orderRow,
-                    `status orders retrieval for status: ${statusId}`
-                );
-                validatedOrders.push(validatedOrder);
-            } catch (validationError) {
-                logger.warn("Skipping invalid order row in status search", {
-                    error: validationError,
-                    row: orderRow,
-                    statusId
-                });
-            }
-        }
-
-        // Cache the results
-        cache.set(cacheKey, validatedOrders, CACHE_TTL.STATUS_ORDERS);
-
-        logger.debug("Status orders retrieved from database", {
-            statusId,
-            count: validatedOrders.length
-        });
-
-        return validatedOrders;
+        return await this.getListFromCacheOrDB(
+            cacheKey,
+            query,
+            CACHE_TTL.STATUS_ORDERS,
+            `find orders by status ID: ${statusId}`
+        );
     }
 
     /**
      * Updates an existing order
+     * Merges update data with existing order data
+     * 
+     * @param orderId - Order ID to update
+     * @param updateData - Partial order data to update
+     * @returns Updated order or null if not found
+     * @throws {DatabaseError} If update fails
+     * @throws {ValidationError} If returned data is invalid
      */
     async update(orderId: number, updateData: UpdateOrder): Promise<Order | null> {
         const existingOrder = await this.findById(orderId);
@@ -344,7 +210,7 @@ export class OrdersRepository {
             completed_at: updateData.completed_at ?? existingOrder.completed_at,
         };
 
-        const updateQuery = {
+        const updateQuery: Query = {
             sql: `UPDATE orders SET user_id = ?, status_id = ?, total_amount = ?, 
                   special_instructions = ?, completed_at = ? WHERE id = ? RETURNING *`,
             args: [
@@ -366,23 +232,23 @@ export class OrdersRepository {
             throw new DatabaseError(errorMessage);
         }
 
-        const validatedUpdatedOrder = this.validateOrderData(
+        const validatedUpdatedOrder = this.validateData(
             updatedOrderRow,
             `order update for ID: ${orderId}`
         );
 
         // Invalidate relevant cache entries
-        this.invalidateOrderCache();
-        this.invalidateSingleOrderCache(orderId);
-        this.invalidateUserOrderCache(existingOrder.user_id);
-        this.invalidateStatusOrderCache(existingOrder.status_id);
+        await this.invalidateAllCache();
+        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDER_BY_ID(orderId)));
+        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_USER(existingOrder.user_id)));
+        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_STATUS(existingOrder.status_id)));
 
         // If user or status changed, invalidate new cache entries too
         if (updateData.user_id && updateData.user_id !== existingOrder.user_id) {
-            this.invalidateUserOrderCache(updateData.user_id);
+            await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_USER(updateData.user_id)));
         }
         if (updateData.status_id && updateData.status_id !== existingOrder.status_id) {
-            this.invalidateStatusOrderCache(updateData.status_id);
+            await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_STATUS(updateData.status_id)));
         }
 
         logger.info("Order updated successfully", {
@@ -395,6 +261,11 @@ export class OrdersRepository {
 
     /**
      * Deletes an order by ID
+     * Invalidates all related cache entries
+     * 
+     * @param orderId - Order ID to delete
+     * @returns true if deleted, false if not found
+     * @throws {DatabaseError} If deletion fails
      */
     async delete(orderId: number): Promise<boolean> {
         const existingOrder = await this.findById(orderId);
@@ -403,7 +274,7 @@ export class OrdersRepository {
             return false;
         }
 
-        const deleteQuery = {
+        const deleteQuery: Query = {
             sql: `DELETE FROM orders WHERE id = ?`,
             args: [orderId],
         };
@@ -413,10 +284,10 @@ export class OrdersRepository {
 
         if (wasDeleted) {
             // Invalidate relevant cache entries
-            this.invalidateOrderCache();
-            this.invalidateSingleOrderCache(orderId);
-            this.invalidateUserOrderCache(existingOrder.user_id);
-            this.invalidateStatusOrderCache(existingOrder.status_id);
+            await this.invalidateAllCache();
+            await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDER_BY_ID(orderId)));
+            await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_USER(existingOrder.user_id)));
+            await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_STATUS(existingOrder.status_id)));
 
             logger.info("Order deleted successfully", { orderId });
         }
@@ -426,6 +297,10 @@ export class OrdersRepository {
 
     /**
      * Checks if an order exists by ID
+     * Uses findById with caching
+     * 
+     * @param orderId - Order ID to check
+     * @returns true if order exists, false otherwise
      */
     async exists(orderId: number): Promise<boolean> {
         const order = await this.findById(orderId);
@@ -434,9 +309,15 @@ export class OrdersRepository {
 
     /**
      * Marks an order as completed
+     * Sets completed_at to current timestamp
+     * 
+     * @param orderId - Order ID to mark as completed
+     * @returns Updated order or null if not found
+     * @throws {DatabaseError} If update fails
+     * @throws {ValidationError} If returned data is invalid
      */
     async markAsCompleted(orderId: number): Promise<Order | null> {
-        const updateQuery = {
+        const updateQuery: Query = {
             sql: `UPDATE orders SET completed_at = datetime('now') WHERE id = ? RETURNING *`,
             args: [orderId],
         };
@@ -449,26 +330,30 @@ export class OrdersRepository {
             return null;
         }
 
-        const validatedOrder = this.validateOrderData(
+        const validatedOrder = this.validateData(
             updatedOrderRow,
             `order completion for ID: ${orderId}`
         );
 
         // Invalidate relevant cache entries
-        this.invalidateOrderCache();
-        this.invalidateSingleOrderCache(orderId);
-        this.invalidateUserOrderCache(validatedOrder.user_id);
-        this.invalidateStatusOrderCache(validatedOrder.status_id);
+        await this.invalidateAllCache();
+        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDER_BY_ID(orderId)));
+        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_USER(validatedOrder.user_id)));
+        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_STATUS(validatedOrder.status_id)));
 
         logger.info("Order marked as completed", { orderId });
         return validatedOrder;
     }
 
     /**
-     * Gets total amount spent by a user
+     * Gets total amount spent by a user across all their orders
+     * 
+     * @param userId - User ID
+     * @returns Total amount spent
+     * @throws {DatabaseError} If query fails
      */
     async getTotalAmountByUser(userId: number): Promise<number> {
-        const selectQuery = {
+        const selectQuery: Query = {
             sql: `SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE user_id = ?`,
             args: [userId],
         };
@@ -482,32 +367,25 @@ export class OrdersRepository {
 
     /**
      * Gets orders within a date range
+     * Results are sorted by order_date in descending order
+     * Not cached due to dynamic nature of date range queries
+     * 
+     * @param startDate - Start date (ISO string)
+     * @param endDate - End date (ISO string)
+     * @returns Array of orders within date range
+     * @throws {DatabaseError} If query fails
      */
     async getOrdersByDateRange(startDate: string, endDate: string): Promise<Order[]> {
-        const selectQuery = {
+        const selectQuery: Query = {
             sql: `SELECT * FROM orders WHERE order_date BETWEEN ? AND ? ORDER BY order_date DESC`,
             args: [startDate, endDate],
         };
 
         const queryResult = await this.executeDatabaseQuery(selectQuery, "fetch orders by date range");
-        const validatedOrders: Order[] = [];
-
-        for (const orderRow of queryResult.rows) {
-            try {
-                const validatedOrder = this.validateOrderData(
-                    orderRow,
-                    `date range order retrieval: ${startDate} to ${endDate}`
-                );
-                validatedOrders.push(validatedOrder);
-            } catch (validationError) {
-                logger.warn("Skipping invalid order row in date range search", {
-                    error: validationError,
-                    row: orderRow,
-                    startDate,
-                    endDate
-                });
-            }
-        }
+        const validatedOrders = this.validateRows(
+            queryResult.rows,
+            `date range order retrieval: ${startDate} to ${endDate}`
+        );
 
         logger.debug("Orders found by date range", {
             startDate,

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
-import { ProductService } from "@/services/products_service.js";
+import { getProductService } from "@/factories/service_factory.js";
 
-const productService = new ProductService();
+const productService = getProductService();
 
 /**
  * Crear un nuevo producto
@@ -13,11 +13,11 @@ const productService = new ProductService();
  */
 export async function createProduct(req: Request, res: Response, next: NextFunction) {
     try {
-        const product = await productService.create(req.body);
+        const newProduct = await productService.create(req.body);
         res.status(201).json({
             success: true,
-            data: product,
-            message: "Producto creado exitosamente"
+            data: newProduct,
+            message: "Product created successfully"
         });
     } catch (err) {
         next(err);
@@ -33,12 +33,12 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
  */
 export async function getAllProducts(_req: Request, res: Response, next: NextFunction) {
     try {
-        const products = await productService.findAll();
+        const productList = await productService.findAll();
         res.status(200).json({
             success: true,
-            data: products,
-            count: products.length,
-            message: "Lista de productos obtenida exitosamente"
+            data: productList,
+            count: productList.length,
+            message: "Products retrieved successfully"
         });
     } catch (err) {
         next(err);
@@ -57,20 +57,21 @@ export async function getAllProducts(_req: Request, res: Response, next: NextFun
  */
 export async function getProductById(req: Request, res: Response, next: NextFunction) {
     try {
-        const id = parseInt(req.params.id);
+        const productId = parseInt(req.params.id);
 
-        if (isNaN(id)) {
+        if (isNaN(productId)) {
             res.status(400).json({
                 success: false,
-                error: "ID inválido, debe ser un número"
+                error: "Invalid ID, must be a number"
             });
+            return;
         }
 
-        const product = await productService.findById(id);
+        const product = await productService.findById(productId);
         res.status(200).json({
             success: true,
             data: product,
-            message: "Producto obtenido exitosamente"
+            message: "Product retrieved successfully"
         });
     } catch (err) {
         next(err);
@@ -90,20 +91,21 @@ export async function getProductById(req: Request, res: Response, next: NextFunc
  */
 export async function updateProduct(req: Request, res: Response, next: NextFunction) {
     try {
-        const id = parseInt(req.params.id);
+        const productId = parseInt(req.params.id);
 
-        if (isNaN(id)) {
+        if (isNaN(productId)) {
             res.status(400).json({
                 success: false,
-                error: "ID inválido, debe ser un número"
+                error: "Invalid ID, must be a number"
             });
+            return;
         }
 
-        const product = await productService.update(id, req.body);
+        const updatedProduct = await productService.update(productId, req.body);
         res.status(200).json({
             success: true,
-            data: product,
-            message: "Producto actualizado exitosamente"
+            data: updatedProduct,
+            message: "Product updated successfully"
         });
     } catch (err) {
         next(err);
@@ -122,19 +124,20 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
  */
 export async function deleteProduct(req: Request, res: Response, next: NextFunction) {
     try {
-        const id = parseInt(req.params.id);
+        const productId = parseInt(req.params.id);
 
-        if (isNaN(id)) {
+        if (isNaN(productId)) {
             res.status(400).json({
                 success: false,
-                error: "ID inválido, debe ser un número"
+                error: "Invalid ID, must be a number"
             });
+            return;
         }
 
-        await productService.delete(id);
+        await productService.delete(productId);
         res.status(200).json({
             success: true,
-            message: "Producto eliminado exitosamente"
+            message: "Product deleted successfully"
         });
     } catch (err) {
         next(err);
@@ -152,23 +155,23 @@ export async function deleteProduct(req: Request, res: Response, next: NextFunct
  */
 export async function searchProducts(req: Request, res: Response, next: NextFunction) {
     try {
-        const { q } = req.query;
+        const { q: searchTerm } = req.query;
 
-        if (!q || typeof q !== 'string') {
+        if (!searchTerm || typeof searchTerm !== 'string') {
             res.status(400).json({
                 success: false,
-                error: "Query de búsqueda requerida"
+                error: "Search query is required"
             });
             return;
         }
 
-        const products = await productService.search(q as string);
+        const searchResults = await productService.search(searchTerm as string);
         res.status(200).json({
             success: true,
-            data: products,
-            count: products.length,
-            query: q,
-            message: "Búsqueda completada exitosamente"
+            data: searchResults,
+            count: searchResults.length,
+            query: searchTerm,
+            message: "Search completed successfully"
         });
     } catch (err) {
         next(err);
@@ -191,19 +194,20 @@ export async function getProductsByAvailability(req: Request, res: Response, nex
         if (!['available', 'unavailable'].includes(status)) {
             res.status(400).json({
                 success: false,
-                error: "Status debe ser 'available' o 'unavailable'"
+                error: "Status must be 'available' or 'unavailable'"
             });
+            return;
         }
 
         const isAvailable = status === 'available';
-        const products = await productService.findByAvailability(isAvailable);
+        const filteredProducts = await productService.findByAvailability(isAvailable);
 
         res.status(200).json({
             success: true,
-            data: products,
-            count: products.length,
+            data: filteredProducts,
+            count: filteredProducts.length,
             filter: { availability: isAvailable },
-            message: `Productos ${status === 'available' ? 'disponibles' : 'no disponibles'} obtenidos exitosamente`
+            message: `${status === 'available' ? 'Available' : 'Unavailable'} products retrieved successfully`
         });
     } catch (err) {
         next(err);
@@ -226,17 +230,18 @@ export async function getProductsByCategory(req: Request, res: Response, next: N
         if (isNaN(categoryId)) {
             res.status(400).json({
                 success: false,
-                error: "ID de categoría inválido, debe ser un número"
+                error: "Invalid category ID, must be a number"
             });
+            return;
         }
 
-        const products = await productService.findByCategory(categoryId);
+        const categoryProducts = await productService.findByCategory(categoryId);
         res.status(200).json({
             success: true,
-            data: products,
-            count: products.length,
-            filter: { category_id: categoryId },
-            message: "Productos por categoría obtenidos exitosamente"
+            data: categoryProducts,
+            count: categoryProducts.length,
+            filter: { categoryId },
+            message: `Products from category ${categoryId} retrieved successfully`
         });
     } catch (err) {
         next(err);

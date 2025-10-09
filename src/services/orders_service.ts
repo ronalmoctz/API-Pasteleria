@@ -1,12 +1,14 @@
-import { OrdersRepository } from "@/repositories/orders_repository.js";
-import { OrderStatusRepository } from "@/repositories/orders_status_reporsitory.js";
+import type { IOrdersRepository } from "@/interfaces/repositories/orders_repository_interface.js";
 import { AppError } from "@/utils/app_error.js";
 import { logger } from "@/utils/logger.js";
 import { HTTP_STATUS } from "@/constants/http_status.js";
 import type { CreateOrder, UpdateOrder } from "@/schemas/orders_schema.js";
 import type { Order } from "@/interfaces/orders_interface.js";
 
-// Service-specific error messages
+/**
+ * Service-specific error messages
+ * Centralized error messages for consistency
+ */
 const ERROR_MESSAGES = {
     ORDER_NOT_FOUND: "Orden no encontrada",
     ORDER_CREATION_FAILED: "Error al crear la orden",
@@ -25,12 +27,48 @@ const ERROR_MESSAGES = {
     CALCULATION_ERROR: "Error en cálculo de totales",
 } as const;
 
+/**
+ * Interface for order status repository
+ * Used for dependency injection and to follow ISP (SOLID)
+ */
+interface IOrderStatusRepository {
+    exists(statusId: number): Promise<boolean>;
+}
+
+/**
+ * Service layer for Order business logic
+ * Follows Dependency Injection principle (SOLID - D)
+ * Separates business logic from data access layer
+ */
 export class OrdersService {
-    private ordersRepository = new OrdersRepository();
-    private orderStatusRepository = new OrderStatusRepository();
+    /**
+     * Creates a new instance of OrdersService
+     * Dependencies are injected via constructor (Dependency Injection pattern)
+     * 
+     * @param ordersRepository - Orders repository implementation
+     * @param orderStatusRepository - Order status repository implementation
+     */
+    constructor(
+        private readonly ordersRepository: IOrdersRepository,
+        private readonly orderStatusRepository: IOrderStatusRepository
+    ) {}
 
     /**
-     * Creates a new order with validation
+     * Creates a new order with business logic validation
+     * Validates user_id, status_id, and total_amount before creation
+     * Trims special instructions and ensures non-negative amounts
+     * 
+     * @param orderData - Order creation data
+     * @returns Created order with generated ID and timestamp
+     * @throws {AppError} If validation fails or creation fails
+     * 
+     * @example
+     * const order = await service.createOrder({
+     *   user_id: 1,
+     *   status_id: 1,
+     *   total_amount: 100.50,
+     *   special_instructions: 'Sin cebolla'
+     * });
      */
     async createOrder(orderData: CreateOrder): Promise<Order> {
         const operationContext = "order creation";
@@ -102,7 +140,11 @@ export class OrdersService {
     }
 
     /**
-     * Retrieves all orders
+     * Retrieves all orders from the system
+     * Results are cached for better performance
+     * 
+     * @returns Array of all orders, sorted by order_date DESC
+     * @throws {AppError} If retrieval fails
      */
     async getAllOrders(): Promise<Order[]> {
         const operationContext = "fetch all orders";
@@ -128,7 +170,13 @@ export class OrdersService {
     }
 
     /**
-     * Finds order by ID with existence validation
+     * Finds a specific order by ID
+     * Throws error if order doesn't exist
+     * 
+     * @param orderId - Order ID to search for
+     * @returns Order if found
+     * @throws {AppError} With NOT_FOUND status if order doesn't exist
+     * @throws {AppError} With INTERNAL_SERVER_ERROR if retrieval fails
      */
     async getOrderById(orderId: number): Promise<Order> {
         const operationContext = "find order by ID";
@@ -172,7 +220,12 @@ export class OrdersService {
     }
 
     /**
-     * Gets orders by user ID
+     * Gets all orders for a specific user
+     * Validates user_id before querying
+     * 
+     * @param userId - User ID to filter orders
+     * @returns Array of user's orders, sorted by order_date DESC
+     * @throws {AppError} If user_id is invalid or retrieval fails
      */
     async getOrdersByUserId(userId: number): Promise<Order[]> {
         const operationContext = "fetch orders by user ID";
@@ -215,7 +268,12 @@ export class OrdersService {
     }
 
     /**
-     * Gets orders by status ID
+     * Gets all orders with a specific status
+     * Validates that status exists before querying
+     * 
+     * @param statusId - Status ID to filter orders
+     * @returns Array of orders with specified status
+     * @throws {AppError} If status doesn't exist or retrieval fails
      */
     async getOrdersByStatus(statusId: number): Promise<Order[]> {
         const operationContext = "fetch orders by status";
@@ -269,6 +327,13 @@ export class OrdersService {
 
     /**
      * Updates an existing order
+     * Validates existence, user_id, status_id, and total_amount
+     * Partial updates supported - only provided fields are updated
+     * 
+     * @param orderId - Order ID to update
+     * @param updateData - Partial order data to update
+     * @returns Updated order
+     * @throws {AppError} If order not found or validation fails
      */
     async updateOrder(orderId: number, updateData: UpdateOrder): Promise<Order> {
         const operationContext = "order update";
@@ -355,6 +420,11 @@ export class OrdersService {
 
     /**
      * Deletes an order by ID
+     * Validates existence before deletion
+     * 
+     * @param orderId - Order ID to delete
+     * @returns void
+     * @throws {AppError} If order not found or deletion fails
      */
     async deleteOrder(orderId: number): Promise<void> {
         const operationContext = "order deletion";
@@ -399,6 +469,13 @@ export class OrdersService {
 
     /**
      * Marks an order as completed
+     * Sets completed_at timestamp to current datetime
+     * Prevents marking already completed orders
+     * 
+     * @param orderId - Order ID to mark as completed
+     * @returns Updated order with completed_at timestamp
+     * @throws {AppError} With CONFLICT status if already completed
+     * @throws {AppError} If order not found or update fails
      */
     async markOrderAsCompleted(orderId: number): Promise<Order> {
         const operationContext = "mark order as completed";

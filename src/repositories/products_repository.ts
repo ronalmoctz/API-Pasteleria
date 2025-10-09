@@ -1,133 +1,224 @@
-import { cache } from '@/utils/chache.js';
 import { turso } from '@/config/tursoClient.js';
 import { logger } from '@/utils/logger.js';
 import { productSchema } from '@/schemas/products_schema.js';
 import type { Product, CreateProduct, UpdateProduct } from '@/schemas/products_schema.js';
+import { BaseRepository, type Query } from '@/base/base_repository.js';
+import type { ICacheStrategy } from '@/interfaces/cache_strategy_interface.js';
 
-const PRODUCTS_CACHE_KEY = 'products:all';
+const CACHE_KEYS = {
+    ALL: 'all',
+    BY_ID: (id: number) => `id:${id}`,
+} as const;
 
-export class ProductRepository {
-    async create(data: CreateProduct): Promise<Product> {
-        const result = await turso.execute({
-            sql: `INSERT INTO products (name, description, sku, price, image_url, is_available, cost_price, stock_quantity, category_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-            args: [
-                data.name,
-                data.description ?? null,
-                data.sku ?? null,
-                data.price,
-                data.image_url ?? null,
-                data.is_available ?? true,
-                data.cost_price ?? 0,
-                data.stock_quantity ?? 0,
-                data.category_id
-            ]
-        });
+const CACHE_TTL = {
+    LIST: 180,
+    SINGLE: 300,
+} as const;
 
-        const row = result.rows[0];
-        if (!row) {
-            logger.error('Error al crear el producto', { data });
-            throw new Error('Error al crear el producto');
-        }
+export class ProductRepository extends BaseRepository<Product, CreateProduct, UpdateProduct> {
+    protected readonly tableName = 'products';
+    protected readonly cachePrefix = 'products';
+    protected readonly schema = productSchema;
 
-        const parsed = productSchema.safeParse(row);
-        if (!parsed.success) {
-            logger.error('Producto no cumple con el esquema', { error: parsed.error });
-            throw new Error('Producto creado no válido');
-        }
-
-        cache.del(PRODUCTS_CACHE_KEY);
-        return parsed.data;
+    constructor(cacheStrategy: ICacheStrategy) {
+        super(turso, cacheStrategy);
     }
 
-    async findAll(): Promise<Product[]> {
-        const cached = cache.get<Product[]>(PRODUCTS_CACHE_KEY);
-        if (cached) {
-            logger.info('Productos obtenidos desde caché');
-            return cached;
+    private buildFiltersSQL(filters?: {
+        categoryId?: number;
+        isAvailable?: boolean;
+        minPrice?: number;
+        maxPrice?: number;
+        hasStock?: boolean;
+        nameContains?: string;
+    }): { whereClause: string; params: any[] } {
+        if (!filters) return { whereClause: '', params: [] };
+
+        const conditions: string[] = [];
+        const params: any[] = [];
+
+        if (typeof filters.categoryId === 'number') {
+            conditions.push('category_id = ?');
+            params.push(filters.categoryId);
+        }
+        if (typeof filters.isAvailable === 'boolean') {
+            conditions.push('is_available = ?');
+            params.push(filters.isAvailable ? 1 : 0);
+        }
+        if (typeof filters.minPrice === 'number') {
+            conditions.push('price >= ?');
+            params.push(filters.minPrice);
+        }
+        if (typeof filters.maxPrice === 'number') {
+            conditions.push('price <= ?');
+            params.push(filters.maxPrice);
+        }
+        if (typeof filters.hasStock === 'boolean') {
+            conditions.push(filters.hasStock ? 'stock_quantity > 0' : 'stock_quantity <= 0');
+        }
+        if (filters.nameContains && filters.nameContains.trim() !== '') {
+            conditions.push('LOWER(name) LIKE ?');
+            params.push(`%${filters.nameContains.toLowerCase()}%`);
         }
 
-        const result = await turso.execute(`SELECT * FROM products`);
-        const products: Product[] = [];
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+        return { whereClause, params };
+    }
 
-        for (const row of result.rows) {
-            console.log('🧪 Producto desde BD:', row); // 👈 aquí
-            const parsed = productSchema.safeParse(row);
-            if (!parsed.success) {
-                console.error('❌ Producto inválido:', parsed.error.format()); // 👈 muestra qué campo falla
-                throw new Error('Producto inválido desde BD');
-            }
-            products.push(parsed.data);
+    async create(productData: CreateProduct): Promise<Product> {
+        const insertQuery: Query = {
+            sql: `INSERT INTO products (name, description, sku, price, image_url, is_available, cost_price, stock_quantity, category_id)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+            args: [
+                productData.name,
+                productData.description ?? null,
+                productData.sku ?? null,
+                productData.price,
+                productData.image_url ?? null,
+                productData.is_available ?? true,
+                productData.cost_price ?? 0,
+                productData.stock_quantity ?? 0,
+                productData.category_id
+            ]
+        };
+
+        const result = await this.executeDatabaseQuery(insertQuery, 'create product');
+        const createdRow = result.rows[0];
+        if (!createdRow) {
+            logger.error('Failed to create product - no data returned', { productName: productData.name });
+            throw new Error('Failed to create product');
         }
 
-        cache.set(PRODUCTS_CACHE_KEY, products);
-        return products;
+        const newProduct = this.validateData(createdRow, 'product creation');
+
+        await this.invalidateAllCache();
+        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ALL));
+
+        logger.info('Product created successfully', { productId: newProduct.id, name: newProduct.name });
+        return newProduct;
+    }
+
+    async findAll(queryOptions?: {
+        limit?: number; offset?: number; filters?: {
+            categoryId?: number;
+            isAvailable?: boolean;
+            minPrice?: number;
+            maxPrice?: number;
+            hasStock?: boolean;
+            nameContains?: string;
+        }
+    }): Promise<Product[]> {
+        if (!queryOptions || (!queryOptions.limit && !queryOptions.offset && !queryOptions.filters)) {
+            const cacheKey = this.getCacheKey(CACHE_KEYS.ALL);
+            const query: Query = { sql: `SELECT * FROM products ORDER BY id DESC` };
+            return await this.getListFromCacheOrDB(cacheKey, query, CACHE_TTL.LIST, 'fetch all products');
+        }
+
+        const { whereClause, params } = this.buildFiltersSQL(queryOptions.filters);
+        let sql = `SELECT * FROM products ${whereClause} ORDER BY id DESC`;
+        const queryArgs: any[] = [...params];
+        if (typeof queryOptions.limit === 'number') { sql += ' LIMIT ?'; queryArgs.push(queryOptions.limit); }
+        if (typeof queryOptions.offset === 'number') { sql += ' OFFSET ?'; queryArgs.push(queryOptions.offset); }
+
+        const result = await this.executeDatabaseQuery({ sql, args: queryArgs }, 'find products with filters');
+        const productList = this.validateRows(result.rows, 'products list with filters');
+        return productList;
     }
 
     async findById(id: number): Promise<Product | null> {
-        const result = await turso.execute({
-            sql: `SELECT * FROM products WHERE id = ?`,
-            args: [id]
-        });
-
-        const row = result.rows[0];
-        if (!row) return null;
-
-        const parsed = productSchema.safeParse(row);
-        if (!parsed.success) {
-            logger.error('Producto no válido al buscar por ID', { error: parsed.error });
-            throw new Error('Producto inválido por ID');
-        }
-
-        return parsed.data;
+        const cacheKey = this.getCacheKey(CACHE_KEYS.BY_ID(id));
+        const query: Query = { sql: `SELECT * FROM products WHERE id = ?`, args: [id] };
+        return await this.getFromCacheOrDB(cacheKey, query, CACHE_TTL.SINGLE, `find product by ID: ${id}`);
     }
 
-    async update(id: number, data: UpdateProduct): Promise<Product | null> {
-        const existing = await this.findById(id);
-        if (!existing) return null;
+    async update(productId: number, updateData: UpdateProduct): Promise<Product | null> {
+        const existingProduct = await this.findById(productId);
+        if (!existingProduct) return null;
 
-        const result = await turso.execute({
+        const updateQuery: Query = {
             sql: `UPDATE products SET name = ?, description = ?, sku = ?, price = ?, image_url = ?, is_available = ?, cost_price = ?, stock_quantity = ?, category_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *`,
             args: [
-                data.name ?? existing.name,
-                data.description ?? existing.description,
-                data.sku ?? existing.sku,
-                data.price ?? existing.price,
-                data.image_url ?? existing.image_url,
-                data.is_available ?? existing.is_available,
-                data.cost_price ?? existing.cost_price,
-                data.stock_quantity ?? existing.stock_quantity,
-                data.category_id ?? existing.category_id,
-                id
+                updateData.name ?? existingProduct.name,
+                updateData.description ?? existingProduct.description,
+                updateData.sku ?? existingProduct.sku,
+                updateData.price ?? existingProduct.price,
+                updateData.image_url ?? existingProduct.image_url,
+                updateData.is_available ?? existingProduct.is_available,
+                updateData.cost_price ?? existingProduct.cost_price,
+                updateData.stock_quantity ?? existingProduct.stock_quantity,
+                updateData.category_id ?? existingProduct.category_id,
+                productId
             ]
-        });
+        };
 
-        const row = result.rows[0];
-        if (!row) return null;
+        const result = await this.executeDatabaseQuery(updateQuery, 'update product');
+        const updatedRow = result.rows[0];
+        if (!updatedRow) return null;
 
-        const parsed = productSchema.safeParse(row);
-        if (!parsed.success) {
-            logger.error('Producto actualizado inválido', { error: parsed.error });
-            throw new Error('Producto actualizado no válido');
-        }
+        const updatedProduct = this.validateData(updatedRow, `product update for ID: ${productId}`);
 
-        cache.del(PRODUCTS_CACHE_KEY);
-        return parsed.data;
+        await this.invalidateAllCache();
+        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ALL));
+        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.BY_ID(productId)));
+
+        logger.info('Product updated successfully', { productId, name: updatedProduct.name });
+        return updatedProduct;
     }
 
-    async delete(id: number): Promise<boolean> {
-        const result = await turso.execute({
-            sql: `DELETE FROM products WHERE id = ?`,
-            args: [id]
-        });
+    async delete(productId: number): Promise<boolean> {
+        const deleteQuery: Query = { sql: `DELETE FROM products WHERE id = ?`, args: [productId] };
+        const result = await this.executeDatabaseQuery(deleteQuery, 'delete product');
+        const wasDeleted = result.rowsAffected > 0;
 
-        if (result.rowsAffected > 0) {
-            cache.del(PRODUCTS_CACHE_KEY);
-            logger.info('Producto eliminado', { id });
-            return true;
+        if (wasDeleted) {
+            await this.invalidateAllCache();
+            await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ALL));
+            await this.invalidateCache(this.getCacheKey(CACHE_KEYS.BY_ID(productId)));
+            logger.info('Product deleted successfully', { productId });
+        } else {
+            logger.warn('Product not found for deletion', { productId });
         }
 
-        logger.warn('Producto no encontrado para eliminar', { id });
-        return false;
+        return wasDeleted;
+    }
+
+    async count(filterParams?: {
+        categoryId?: number;
+        isAvailable?: boolean;
+        minPrice?: number;
+        maxPrice?: number;
+        hasStock?: boolean;
+        nameContains?: string;
+        searchQuery?: string;
+    }): Promise<number> {
+        if (filterParams && typeof filterParams.searchQuery === 'string') {
+            const searchPattern = `%${filterParams.searchQuery.toLowerCase()}%`;
+            const query: Query = {
+                sql: `SELECT COUNT(1) as total FROM products 
+                      WHERE LOWER(name) LIKE ? OR LOWER(COALESCE(description, '')) LIKE ?`,
+                args: [searchPattern, searchPattern]
+            };
+            const result = await this.executeDatabaseQuery(query, 'count products by search');
+            const totalCount = parseInt(String(result.rows[0]?.total ?? '0')) || 0;
+            return totalCount;
+        }
+
+        const { whereClause, params: whereParams } = this.buildFiltersSQL(filterParams);
+        const query: Query = { sql: `SELECT COUNT(1) as total FROM products ${whereClause}`, args: whereParams };
+        const result = await this.executeDatabaseQuery(query, 'count products by filters');
+        const totalCount = parseInt(String(result.rows[0]?.total ?? '0')) || 0;
+        return totalCount;
+    }
+
+    async search(searchTerm: string, paginationOptions?: { limit?: number; offset?: number; }): Promise<Product[]> {
+        const searchPattern = `%${searchTerm.toLowerCase()}%`;
+        let sql = `SELECT * FROM products WHERE LOWER(name) LIKE ? OR LOWER(COALESCE(description, '')) LIKE ? ORDER BY id DESC`;
+        const queryArgs: any[] = [searchPattern, searchPattern];
+        if (paginationOptions && typeof paginationOptions.limit === 'number') { sql += ' LIMIT ?'; queryArgs.push(paginationOptions.limit); }
+        if (paginationOptions && typeof paginationOptions.offset === 'number') { sql += ' OFFSET ?'; queryArgs.push(paginationOptions.offset); }
+
+        const result = await this.executeDatabaseQuery({ sql, args: queryArgs }, 'search products');
+        const searchResults = this.validateRows(result.rows, 'search products');
+        return searchResults;
     }
 }
