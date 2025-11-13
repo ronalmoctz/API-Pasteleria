@@ -2,7 +2,7 @@ import { OrdersService } from '@/services/orders_service.js';
 import { OrdersRepository } from '@/repositories/orders_repository.js';
 import { OrderStatusRepository } from '@/repositories/orders_status_reporsitory.js';
 import { ProductService } from '@/services/products_service.js';
-import { RedisCacheStrategy } from '@/strategies/redis_cache_strategy.js';
+import { NodeCacheStrategy } from '@/strategies/node_cache_strategy.js';
 import { logger } from '@/utils/logger.js';
 
 /**
@@ -13,7 +13,7 @@ import { logger } from '@/utils/logger.js';
 class ServiceFactory {
     private static ordersServiceInstance: OrdersService | null = null;
     private static productServiceInstance: ProductService | null = null;
-    private static cacheStrategy = new RedisCacheStrategy();
+    private static cacheStrategy = new NodeCacheStrategy();
 
     /**
      * Gets or creates OrdersService instance

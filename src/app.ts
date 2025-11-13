@@ -11,8 +11,6 @@ import { logger } from '@/utils/logger.js';
 //GraphQL import
 import { setupGraphQl } from '@/graphql/index.js';
 
-//Redis import
-import { initRedisConnection, closeRedisConnection, getRedisStats } from './config/redis';
 
 // Import routes
 import userRoutes from '@/routes/user_routes.js';
@@ -26,7 +24,20 @@ const app = express();
 
 app.use(timeout('5s', { respond: true }));
 
-app.use(cors());
+// CORS configuration with credentials support
+app.use(cors({
+    origin: [
+        'http://localhost:4200',
+        'http://localhost:3000',
+        'http://localhost:5173',
+        ENV.API_BASE_URL || 'http://localhost:4200'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    optionsSuccessStatus: 200
+}));
+
 app.use(express.json());
 app.use(cookieParser());
 setupSwagger(app);
@@ -150,26 +161,11 @@ async function bootstrap() {
         process.exit(1);
     }
 
-    const redisConnected = await initRedisConnection();
-    if (!redisConnected) {
-        // Si Redis es obligatorio:
-        console.error('🚫 No se pudo conectar a Redis. Abortando.');
-        process.exit(1);
-
-        // Si Redis es opcional: podrías continuar pero dejar funcionalidades degradadas
-        // logger.warn('Continuando sin Redis — algunas funcionalidades estarán degradadas');
-    }
-
     app.listen(ENV.SERVER_PORT, async () => {
         logger.info(`🚀 Bakery API is running on http://localhost:${ENV.SERVER_PORT}`);
         logger.info(`📘 Scalar Reference at http://localhost:${ENV.SERVER_PORT}/reference`);
         logger.info(`🧠 GraphQL running on http://localhost:${ENV.SERVER_PORT}/graphql`);
-        try {
-            const stats = await getRedisStats();
-            logger.info('☑️ Redis Cloud connection status', stats);
-        } catch (err) {
-            logger.warn('☑️ No se pudieron obtener estadísticas de Redis', { error: err instanceof Error ? err.message : String(err) });
-        }
+        logger.info('✅ Using NodeCache for caching strategy');
     });
 }
 

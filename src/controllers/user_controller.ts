@@ -232,11 +232,247 @@ export async function getUserByEmail(req: Request, res: Response, next: NextFunc
     }
 }
 
-setInterval(() => {
-    const now = Date.now();
-    for (const [ip, attempts] of loginAttempts.entries()) {
-        if (now - attempts.lastAttempt > LOGIN_WINDOW) {
-            loginAttempts.delete(ip);
-        }
+/**
+ * Get all users with pagination and filtering
+ * @router GET /api/users
+ * @returns 200 - Users retrieved successfully
+ * @returns 401 - Unauthorized
+ * @returns 403 - Forbidden (requires admin)
+ */
+export async function getAllUsers(req: Request, res: Response, next: NextFunction) {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+
+    try {
+        logger.info('Obteniendo lista de usuarios', {
+            requestId,
+            ip: getClientIP(req),
+            query: req.query
+        });
+
+        const query = {
+            page: req.query.page ? Number(req.query.page) : 1,
+            limit: req.query.limit ? Number(req.query.limit) : 10,
+            role: req.query.role as 'customer' | 'admin' | undefined,
+            is_active: req.query.is_active ? req.query.is_active === 'true' : undefined
+        };
+
+        const result = await userService.getAllUsers(query);
+
+        const duration = Date.now() - startTime;
+        logger.info('Lista de usuarios obtenida', {
+            requestId,
+            total: result.total,
+            page: result.page,
+            duration: `${duration}ms`
+        });
+
+        res.status(200).json({
+            success: true,
+            data: result.users,
+            pagination: {
+                total: result.total,
+                page: result.page,
+                limit: result.limit,
+                pages: Math.ceil(result.total / result.limit)
+            },
+            message: "Users retrieved successfully"
+        });
+
+    } catch (err) {
+        const duration = Date.now() - startTime;
+        logger.error('Error obteniendo usuarios', {
+            requestId,
+            error: err instanceof Error ? err.message : 'Unknown error',
+            duration: `${duration}ms`
+        });
+        next(err);
     }
-}, 60 * 60 * 1000); // 1 hora
+}
+
+/**
+ * Get user by ID
+ * @router GET /api/users/:id
+ * @returns 200 - User found
+ * @returns 401 - Unauthorized
+ * @returns 404 - User not found
+ */
+export async function getUserById(req: Request, res: Response, next: NextFunction) {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+
+    try {
+        const userId = Number(req.params.id);
+
+        logger.debug('Buscando usuario por ID', {
+            requestId,
+            userId
+        });
+
+        const user = await userService.getUserById(userId);
+
+        const duration = Date.now() - startTime;
+        logger.debug('Usuario encontrado', {
+            requestId,
+            userId,
+            email: user.email,
+            duration: `${duration}ms`
+        });
+
+        res.status(200).json({
+            success: true,
+            data: user,
+            message: "User found successfully"
+        });
+
+    } catch (err) {
+        const duration = Date.now() - startTime;
+        logger.error('Error buscando usuario', {
+            requestId,
+            error: err instanceof Error ? err.message : 'Unknown error',
+            userId: req.params.id,
+            duration: `${duration}ms`
+        });
+        next(err);
+    }
+}
+
+/**
+ * Update user
+ * @router PATCH /api/users/:id
+ * @param {EditUserDTO} request.body - User data to update
+ * @returns 200 - User updated successfully
+ * @returns 400 - Bad request
+ * @returns 401 - Unauthorized
+ * @returns 404 - User not found
+ */
+export async function updateUser(req: Request, res: Response, next: NextFunction) {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+
+    try {
+        const userId = Number(req.params.id);
+
+        logger.info('Actualizando usuario', {
+            requestId,
+            userId,
+            fields: Object.keys(req.body || {})
+        });
+
+        const updatedUser = await userService.updateUser(userId, req.body);
+
+        const duration = Date.now() - startTime;
+        logger.info('Usuario actualizado exitosamente', {
+            requestId,
+            userId,
+            email: updatedUser.email,
+            duration: `${duration}ms`
+        });
+
+        res.status(200).json({
+            success: true,
+            data: updatedUser,
+            message: "User updated successfully"
+        });
+
+    } catch (err) {
+        const duration = Date.now() - startTime;
+        logger.error('Error actualizando usuario', {
+            requestId,
+            error: err instanceof Error ? err.message : 'Unknown error',
+            userId: req.params.id,
+            duration: `${duration}ms`
+        });
+        next(err);
+    }
+}
+
+/**
+ * Soft delete user (desactivate)
+ * @router DELETE /api/users/:id
+ * @returns 204 - User deactivated successfully
+ * @returns 401 - Unauthorized
+ * @returns 403 - Forbidden (requires admin)
+ * @returns 404 - User not found
+ */
+export async function deleteUser(req: Request, res: Response, next: NextFunction) {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+
+    try {
+        const userId = Number(req.params.id);
+
+        logger.info('Desactivando usuario (soft delete)', {
+            requestId,
+            userId
+        });
+
+        await userService.softDeleteUser(userId);
+
+        const duration = Date.now() - startTime;
+        logger.info('Usuario desactivado exitosamente', {
+            requestId,
+            userId,
+            duration: `${duration}ms`
+        });
+
+        res.status(204).send();
+
+    } catch (err) {
+        const duration = Date.now() - startTime;
+        logger.error('Error desactivando usuario', {
+            requestId,
+            error: err instanceof Error ? err.message : 'Unknown error',
+            userId: req.params.id,
+            duration: `${duration}ms`
+        });
+        next(err);
+    }
+}
+
+/**
+ * Get user online status
+ * @router GET /api/users/:id/status
+ * @returns 200 - User status retrieved
+ * @returns 401 - Unauthorized
+ * @returns 404 - User not found
+ */
+export async function getUserStatus(req: Request, res: Response, next: NextFunction) {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+
+    try {
+        const userId = Number(req.params.id);
+
+        logger.debug('Obteniendo estado del usuario', {
+            requestId,
+            userId
+        });
+
+        const status = await userService.getOnlineStatus(userId);
+
+        const duration = Date.now() - startTime;
+        logger.debug('Estado obtenido', {
+            requestId,
+            userId,
+            is_online: status.is_online,
+            duration: `${duration}ms`
+        });
+
+        res.status(200).json({
+            success: true,
+            data: status,
+            message: "User status retrieved successfully"
+        });
+
+    } catch (err) {
+        const duration = Date.now() - startTime;
+        logger.error('Error obteniendo estado', {
+            requestId,
+            error: err instanceof Error ? err.message : 'Unknown error',
+            userId: req.params.id,
+            duration: `${duration}ms`
+        });
+        next(err);
+    }
+}

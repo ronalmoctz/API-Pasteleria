@@ -9,9 +9,9 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     const message = err instanceof AppError ? err.message : "Error interno del servidor";
 
     if (isDev) {
-        logger.error(err, "Error atrapado en middleware");
+        logger.error("Error atrapado en middleware", err instanceof Error ? { error: err.message, stack: err.stack } : { error: String(err) });
     } else {
-        logger.error({ message }, "Error de aplicación");
+        logger.error("Error de aplicación", { message });
     }
 
     res.status(statusCode).json({

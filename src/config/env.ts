@@ -13,9 +13,12 @@ export const ENV = {
     REFRESH_TOKEN: process.env.REFRESH_TOKEN,
     JWT_EXPIRATION: process.env.JWT_EXPIRATION,
     API_KEY: process.env.API_KEY,
+    REDIS_URL: process.env.REDIS_URL,
     REDIS_USERNAME: process.env.REDIS_USERNAME,
     REDIS_PASSWORD: process.env.REDIS_PASSWORD,
     REDIS_HOST: process.env.REDIS_HOST,
     REDIS_PORT: process.env.REDIS_PORT,
     REDIS_DB: process.env.REDIS_DB,
+    REDIS_CONNECT_TIMEOUT: process.env.REDIS_CONNECT_TIMEOUT,
+    REDIS_FORCE_TLS: process.env.REDIS_FORCE_TLS,
 }

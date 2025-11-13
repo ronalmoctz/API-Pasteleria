@@ -1,6 +1,6 @@
 import { createClient, RedisClientType } from 'redis';
-import { ENV } from './env';
-import { logger } from '@/utils/logger';
+import { ENV } from './env.js';
+import { logger } from '@/utils/logger.js';
 
 const DEFAULT_CONNECT_TIMEOUT = 10000;
 const MAX_ATTEMPTS = 5;
@@ -12,28 +12,38 @@ function parseDb(value?: string | number) {
 }
 
 const buildRedisOptions = () => {
+    const tlsEnabled = ENV.REDIS_FORCE_TLS === 'true';
+    
     if (ENV.REDIS_URL) {
+        const socketConfig: any = {
+            connectTimeout: Number(ENV.REDIS_CONNECT_TIMEOUT ?? DEFAULT_CONNECT_TIMEOUT),
+            reconnectStrategy: (retries: number) => Math.min(100 * Math.pow(2, retries), 5000),
+        };
+        if (tlsEnabled) {
+            socketConfig.tls = true;
+        }
+        
         return {
             url: ENV.REDIS_URL,
-            socket: {
-                connectTimeout: Number(ENV.REDIS_CONNECT_TIMEOUT ?? DEFAULT_CONNECT_TIMEOUT),
-                tls: ENV.REDIS_FORCE_TLS === 'true' ? true : undefined,
-                reconnectStrategy: (retries: number) => Math.min(100 * Math.pow(2, retries), 5000),
-            },
+            socket: socketConfig,
             username: ENV.REDIS_USERNAME || undefined,
             password: ENV.REDIS_PASSWORD || undefined,
             database: parseDb(ENV.REDIS_DB),
         };
     }
 
+    const socketConfig: any = {
+        host: ENV.REDIS_HOST,
+        port: ENV.REDIS_PORT ? Number(ENV.REDIS_PORT) : undefined,
+        connectTimeout: Number(ENV.REDIS_CONNECT_TIMEOUT ?? DEFAULT_CONNECT_TIMEOUT),
+        reconnectStrategy: (retries: number) => Math.min(retries * 100, 5000),
+    };
+    if (tlsEnabled) {
+        socketConfig.tls = true;
+    }
+
     return {
-        socket: {
-            host: ENV.REDIS_HOST,
-            port: ENV.REDIS_PORT ? Number(ENV.REDIS_PORT) : undefined,
-            connectTimeout: Number(ENV.REDIS_CONNECT_TIMEOUT ?? DEFAULT_CONNECT_TIMEOUT),
-            tls: ENV.REDIS_FORCE_TLS === 'true' ? true : undefined,
-            reconnectStrategy: (retries: number) => Math.min(retries * 100, 5000),
-        },
+        socket: socketConfig,
         username: ENV.REDIS_USERNAME || undefined,
         password: ENV.REDIS_PASSWORD || undefined,
         database: parseDb(ENV.REDIS_DB),

@@ -6,6 +6,8 @@ export interface User {
     phone_number?: string;
     password_hash: string;
     role: 'customer' | 'admin';
+    is_active: boolean;
+    last_seen?: string | null;
     created_at?: string;
     updated_at?: string;
 }

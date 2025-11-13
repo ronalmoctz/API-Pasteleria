@@ -36,7 +36,7 @@ export function signToken(payload: Omit<TokenPayload, 'iat' | 'exp'>): Promise<s
             expiresIn: JWT_EXPIRATION as SignOptions['expiresIn'],
         };
 
-        jwt.sign(payload, JWT_SECRET, options, (err, token) => {
+        jwt.sign(payload, JWT_SECRET, options, (err: Error | null, token?: string) => {
             if (err || !token) {
                 logger.error('Error generando token', { error: err, payload });
                 return reject(err || new Error('Token no generado'));
@@ -55,7 +55,7 @@ export function verifyToken(token: string): Promise<TokenPayload> {
             algorithms: ['HS256' as Algorithm],
         };
 
-        jwt.verify(token, JWT_SECRET, options, (err, decoded) => {
+        jwt.verify(token, JWT_SECRET, options, (err: Error | null, decoded?: unknown) => {
             if (err || !decoded || typeof decoded === 'string') {
                 logger.warn('Token inválido o expirado', { error: err?.message });
                 return reject(new Error('Token inválido o expirado'));
@@ -83,7 +83,7 @@ export function extractTokenFromHeader(authHeader: string | undefined): string |
 }
 
 // Middleware para Express (opcional)
-export function authenticateToken(req: any, res: any, next: any) {
+export function authenticateToken(req: any, res: any, next: () => void): void {
     const token = extractTokenFromHeader(req.headers.authorization);
 
     if (!token) {

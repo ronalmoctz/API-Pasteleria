@@ -5,9 +5,9 @@ import {
     type CreateProduct,
     type UpdateProduct
 } from '@/schemas/products_schema.js'
-import { RedisCacheStrategy } from '@/strategies/redis_cache_strategy.js'
+import { NodeCacheStrategy } from '@/strategies/node_cache_strategy.js'
 
-const productRepository = new ProductRepository(new RedisCacheStrategy())
+const productRepository = new ProductRepository(new NodeCacheStrategy())
 
 // Tipos para los parámetros de entrada
 interface ProductFilters {

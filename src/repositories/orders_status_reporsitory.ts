@@ -1,4 +1,4 @@
-import { cache } from "@/utils/chache.js";
+import { cache } from "@/utils/cache.js";
 import { turso } from "@/config/tursoClient.js";
 import { logger } from "@/utils/logger.js";
 import type { OrderStatus } from "@/interfaces/orders_status_interface.js";

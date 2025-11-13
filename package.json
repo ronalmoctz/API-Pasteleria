@@ -19,7 +19,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.12.3",
   "dependencies": {
     "@libsql/client": "^0.15.9",
     "@scalar/express-api-reference": "^0.8.7",
@@ -50,7 +49,7 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "tsconfig-paths": "^4.2.0",
-    "vercel": "^44.5.0",
+    "vercel": "^48.9.1",
     "zod": "^3.25.67",
     "zod-openapi": "^4.2.4"
   },

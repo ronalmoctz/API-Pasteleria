@@ -3,10 +3,9 @@
  * Used when data doesn't match expected schema or business rules
  */
 export class ValidationError extends Error {
-    constructor(message: string, public details?: any) {
+    constructor(message: string, public details?: unknown) {
         super(message);
         this.name = 'ValidationError';
-        Error.captureStackTrace(this, this.constructor);
     }
 }
 
@@ -15,10 +14,9 @@ export class ValidationError extends Error {
  * Used when database queries or connections fail
  */
 export class DatabaseError extends Error {
-    constructor(message: string, public details?: any) {
+    constructor(message: string, public details?: unknown) {
         super(message);
         this.name = 'DatabaseError';
-        Error.captureStackTrace(this, this.constructor);
     }
 }
 
@@ -27,9 +25,8 @@ export class DatabaseError extends Error {
  * Used when a requested entity doesn't exist
  */
 export class NotFoundError extends Error {
-    constructor(entity: string, identifier: any) {
+    constructor(entity: string, identifier: unknown) {
         super(`${entity} with identifier ${identifier} not found`);
         this.name = 'NotFoundError';
-        Error.captureStackTrace(this, this.constructor);
     }
 }

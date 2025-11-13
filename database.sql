@@ -9,8 +9,10 @@ CREATE TABLE
         last_name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
         phone_number TEXT,
-        password_hash TEXT NOT NULL, -- Almacena el hash de la contraseña, NUNCA la contraseña en texto plano
+        password_hash TEXT NOT NULL,
         role TEXT NOT NULL CHECK (role IN ('customer', 'admin')) DEFAULT 'customer',
+        is_active BOOLEAN NOT NULL DEFAULT 1,
+        last_seen TEXT,
         created_at TEXT NOT NULL DEFAULT (strftime ('%Y-%m-%d %H:%M:%S', 'now')),
         updated_at TEXT NOT NULL DEFAULT (strftime ('%Y-%m-%d %H:%M:%S', 'now'))
     );
