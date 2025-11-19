@@ -2,8 +2,9 @@ import type { IOrdersRepository } from "@/interfaces/repositories/orders_reposit
 import { AppError } from "@/utils/app_error.js";
 import { logger } from "@/utils/logger.js";
 import { HTTP_STATUS } from "@/constants/http_status.js";
-import type { CreateOrder, UpdateOrder } from "@/schemas/orders_schema.js";
+import type { CreateOrder, UpdateOrder, OrderItemInput } from "@/schemas/orders_schema.js";
 import type { Order } from "@/interfaces/orders_interface.js";
+import type { Product } from "@/schemas/products_schema.js";
 
 /**
  * Service-specific error messages
@@ -25,6 +26,9 @@ const ERROR_MESSAGES = {
     STATUS_NOT_FOUND: "Estado de orden no encontrado",
     USER_NOT_FOUND: "Usuario no encontrado",
     CALCULATION_ERROR: "Error en cálculo de totales",
+    PRODUCT_NOT_FOUND: "Uno o más productos no encontrados",
+    PRODUCT_UNAVAILABLE: "Uno o más productos no están disponibles",
+    EMPTY_ORDER: "La orden debe tener al menos un item",
 } as const;
 
 /**
@@ -33,6 +37,14 @@ const ERROR_MESSAGES = {
  */
 interface IOrderStatusRepository {
     exists(statusId: number): Promise<boolean>;
+}
+
+/**
+ * Interface for products repository
+ * Used for product validation
+ */
+interface IProductsRepository {
+    findById(productId: number): Promise<Product | null>;
 }
 
 /**
@@ -47,18 +59,19 @@ export class OrdersService {
      * 
      * @param ordersRepository - Orders repository implementation
      * @param orderStatusRepository - Order status repository implementation
+     * @param productsRepository - Products repository for validation
      */
     constructor(
         private readonly ordersRepository: IOrdersRepository,
-        private readonly orderStatusRepository: IOrderStatusRepository
-    ) {}
+        private readonly orderStatusRepository: IOrderStatusRepository,
+        private readonly productsRepository: IProductsRepository
+    ) { }
 
     /**
-     * Creates a new order with business logic validation
-     * Validates user_id, status_id, and total_amount before creation
-     * Trims special instructions and ensures non-negative amounts
+     * Creates a new order with items
+     * Validates products, calculates total_amount server-side, and creates order with items atomically
      * 
-     * @param orderData - Order creation data
+     * @param orderData - Order creation data with items array
      * @returns Created order with generated ID and timestamp
      * @throws {AppError} If validation fails or creation fails
      * 
@@ -66,17 +79,17 @@ export class OrdersService {
      * const order = await service.createOrder({
      *   user_id: 1,
      *   status_id: 1,
-     *   total_amount: 100.50,
+     *   items: [{ product_id: 5, quantity: 2 }],
      *   special_instructions: 'Sin cebolla'
      * });
      */
     async createOrder(orderData: CreateOrder): Promise<Order> {
         const operationContext = "order creation";
 
-        logger.debug("Starting order creation", {
+        logger.debug("Starting order creation with items", {
             userId: orderData.user_id,
             statusId: orderData.status_id,
-            totalAmount: orderData.total_amount,
+            itemCount: orderData.items.length,
             operation: operationContext
         });
 
@@ -100,26 +113,84 @@ export class OrdersService {
                 throw new AppError(ERROR_MESSAGES.STATUS_NOT_FOUND, HTTP_STATUS.BAD_REQUEST);
             }
 
-            // Validate total_amount
-            if (orderData.total_amount < 0) {
-                logger.warn("Attempt to create order with negative total amount", {
-                    totalAmount: orderData.total_amount,
+            // Validate items array
+            if (!orderData.items || orderData.items.length === 0) {
+                logger.warn("Attempt to create order without items", {
                     operation: operationContext
                 });
-                throw new AppError(ERROR_MESSAGES.INVALID_TOTAL_AMOUNT, HTTP_STATUS.BAD_REQUEST);
+                throw new AppError(ERROR_MESSAGES.EMPTY_ORDER, HTTP_STATUS.BAD_REQUEST);
             }
 
-            // Trim special_instructions if provided, ensure it's always a string
-            const cleanedOrderData = {
-                ...orderData,
-                special_instructions: orderData.special_instructions?.trim() || ""
-            };
+            // Validate all products exist and are available, fetch prices
+            const itemsWithPrices: Array<{ product_id: number; quantity: number; price_per_unit: number }> = [];
+            let totalAmount = 0;
 
-            const createdOrder = await this.ordersRepository.create(cleanedOrderData);
+            for (const item of orderData.items) {
+                const product = await this.productsRepository.findById(item.product_id);
 
-            logger.info("Order created successfully", {
+                if (!product) {
+                    logger.warn("Product not found", {
+                        productId: item.product_id,
+                        operation: operationContext
+                    });
+                    throw new AppError(
+                        `${ERROR_MESSAGES.PRODUCT_NOT_FOUND}: ID ${item.product_id}`,
+                        HTTP_STATUS.BAD_REQUEST
+                    );
+                }
+
+                if (!product.is_available) {
+                    logger.warn("Product not available", {
+                        productId: item.product_id,
+                        productName: product.name,
+                        operation: operationContext
+                    });
+                    throw new AppError(
+                        `${ERROR_MESSAGES.PRODUCT_UNAVAILABLE}: ${product.name}`,
+                        HTTP_STATUS.BAD_REQUEST
+                    );
+                }
+
+                // Use product price from database (server-side pricing)
+                const itemTotal = product.price * item.quantity;
+                totalAmount += itemTotal;
+
+                itemsWithPrices.push({
+                    product_id: item.product_id,
+                    quantity: item.quantity,
+                    price_per_unit: product.price
+                });
+
+                logger.debug("Product validated", {
+                    productId: product.id,
+                    productName: product.name,
+                    quantity: item.quantity,
+                    price: product.price,
+                    itemTotal
+                });
+            }
+
+            logger.info("All products validated, total calculated", {
+                itemCount: itemsWithPrices.length,
+                calculatedTotal: totalAmount,
+                operation: operationContext
+            });
+
+            // Create order with items using repository transaction method
+            const createdOrder = await this.ordersRepository.createWithItems(
+                {
+                    user_id: orderData.user_id,
+                    status_id: orderData.status_id,
+                    total_amount: totalAmount,
+                    special_instructions: orderData.special_instructions?.trim() || undefined
+                },
+                itemsWithPrices
+            );
+
+            logger.info("Order with items created successfully", {
                 orderId: createdOrder.id,
                 userId: createdOrder.user_id,
+                itemCount: itemsWithPrices.length,
                 totalAmount: createdOrder.total_amount,
                 operation: operationContext
             });
@@ -130,9 +201,13 @@ export class OrdersService {
                 throw error;
             }
 
-            logger.error("Failed to create order", {
+            logger.error("Failed to create order with items", {
                 error,
-                orderData,
+                orderData: {
+                    user_id: orderData.user_id,
+                    status_id: orderData.status_id,
+                    itemCount: orderData.items?.length
+                },
                 operation: operationContext
             });
             throw new AppError(ERROR_MESSAGES.ORDER_CREATION_FAILED, HTTP_STATUS.INTERNAL_SERVER_ERROR);

@@ -142,14 +142,15 @@ export class UserService {
             }
 
             const status = await UserRepository.getOnlineStatus(id);
-            logger.info("Estado online obtenido", { id, is_online: status.is_online });
+            logger.info("Estado online obtenido", { id, is_online: status.is_online, duration: status.duration.formatted });
 
             return {
                 id: user.id,
                 email: user.email,
                 is_online: status.is_online,
                 last_seen: status.last_seen,
-                status: status.is_online ? "online" : "offline",
+                status: `${status.is_online ? "online" : "offline"} ${status.duration.formatted}`,
+                duration: status.duration
             };
         } catch (err) {
             logger.error("Error obteniendo estado online", { error: err, id });

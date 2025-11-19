@@ -138,3 +138,30 @@ export async function deleteOrder(req: Request, res: Response, next: NextFunctio
         next(err);
     }
 }
+
+/**
+ * @openapi
+ * /api/v1/orders/{id}/complete:
+ *   patch:
+ *     tags:
+ *       - Órdenes
+ *     summary: Marcar orden como completada
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Orden marcada como completada exitosamente
+ */
+export async function markOrderAsCompleted(req: Request, res: Response, next: NextFunction) {
+    try {
+        const id = parseInt(req.params.id);
+        const order = await ordersService.markOrderAsCompleted(id);
+        res.status(200).json({ success: true, data: order, message: 'Orden completada exitosamente' });
+    } catch (err) {
+        next(err);
+    }
+}

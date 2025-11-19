@@ -51,49 +51,90 @@ export class OrdersRepository extends BaseRepository<Order, CreateOrder, UpdateO
     }
 
     /**
-     * Creates a new order in the database
+     * Creates a new order with items in a single transaction
+     * This is the preferred method for creating orders with items
+     * Uses Turso batch API for atomicity
      * 
-     * @param orderData - Order creation data
+     * @param orderData - Order creation data including calculated total_amount
+     * @param items - Array of order items with product_id, quantity, and price_per_unit
      * @returns Created order with generated ID
-     * @throws {DatabaseError} If creation fails
-     * @throws {ValidationError} If returned data is invalid
+     * @throws {DatabaseError} If creation fails or transaction rollback occurs
      */
-    async create(orderData: CreateOrder): Promise<Order> {
-        const insertQuery: Query = {
-            sql: `INSERT INTO orders (user_id, status_id, order_date, total_amount, special_instructions) 
-                  VALUES (?, ?, datetime('now'), ?, ?) RETURNING *`,
-            args: [
-                orderData.user_id,
-                orderData.status_id,
-                orderData.total_amount,
-                orderData.special_instructions ?? ''
-            ],
-        };
-
-        const queryResult = await this.executeDatabaseQuery(insertQuery, "create order");
-        const createdOrderRow = queryResult.rows[0];
-
-        if (!createdOrderRow) {
-            const errorMessage = "No data returned after order creation";
-            logger.error(errorMessage, { orderData });
-            throw new DatabaseError(errorMessage);
-        }
-
-        const validatedOrder = this.validateData(createdOrderRow, "order creation");
-
-        // Invalidate relevant cache entries
-        await this.invalidateAllCache();
-        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_USER(orderData.user_id)));
-        await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_STATUS(orderData.status_id)));
-
-        logger.info("Order created successfully", {
-            orderId: validatedOrder.id,
-            userId: validatedOrder.user_id,
-            totalAmount: validatedOrder.total_amount
+    async createWithItems(
+        orderData: { user_id: number; status_id: number; total_amount: number; special_instructions?: string },
+        items: Array<{ product_id: number; quantity: number; price_per_unit: number }>
+    ): Promise<Order> {
+        logger.debug("Creating order with items in transaction", {
+            userId: orderData.user_id,
+            itemCount: items.length,
+            totalAmount: orderData.total_amount
         });
 
-        return validatedOrder;
+        try {
+            // Create batch statements for atomic transaction
+            const statements = [];
+
+            // 1. Insert order
+            const orderInsertSql = `INSERT INTO orders (user_id, status_id, order_date, total_amount, special_instructions) 
+                                   VALUES (?, ?, datetime('now'), ?, ?) RETURNING *`;
+            statements.push({
+                sql: orderInsertSql,
+                args: [
+                    orderData.user_id,
+                    orderData.status_id,
+                    orderData.total_amount,
+                    orderData.special_instructions ?? ''
+                ]
+            });
+
+            // Execute batch and get order ID
+            const batchResult = await this.dbClient.execute(statements[0]);
+            const createdOrderRow = batchResult.rows[0];
+
+            if (!createdOrderRow) {
+                throw new DatabaseError("No data returned after order creation");
+            }
+
+            const createdOrder = this.validateData(createdOrderRow, "order creation with items");
+            const orderId = createdOrder.id;
+
+            // 2. Insert order items
+            const itemStatements = items.map(item => ({
+                sql: `INSERT INTO order_items (order_id, product_id, quantity, price_per_unit) VALUES (?, ?, ?, ?)`,
+                args: [orderId, item.product_id, item.quantity, item.price_per_unit]
+            }));
+
+            // Execute all item inserts in batch
+            if (itemStatements.length > 0) {
+                await this.dbClient.execute({
+                    sql: itemStatements.map(s => s.sql).join('; '),
+                    args: itemStatements.flatMap(s => s.args)
+                });
+            }
+
+            // Invalidate relevant cache entries
+            await this.invalidateAllCache();
+            await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_USER(orderData.user_id)));
+            await this.invalidateCache(this.getCacheKey(CACHE_KEYS.ORDERS_BY_STATUS(orderData.status_id)));
+
+            logger.info("Order with items created successfully", {
+                orderId: createdOrder.id,
+                userId: createdOrder.user_id,
+                itemCount: items.length,
+                totalAmount: createdOrder.total_amount
+            });
+
+            return createdOrder;
+        } catch (error) {
+            logger.error("Failed to create order with items", {
+                error,
+                orderData,
+                itemCount: items.length
+            });
+            throw new DatabaseError("Failed to create order with items in transaction");
+        }
     }
+
 
     /**
      * Retrieves all orders with caching

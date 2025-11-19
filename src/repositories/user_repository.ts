@@ -6,6 +6,7 @@ import type { RegisterUserDTO, LoginDTO, PublicUserDTO, EditUserDTO, GetAllUsers
 import { signToken } from "@/utils/jwt.js";
 import { hashPassword, comparePassword } from "@/utils/bcrypt.js";
 import { cache } from '@/utils/cache.js';
+import { formatTimeDifference } from "@/utils/time_formatter.js";
 
 
 const USER_BY_EMAIL_CACHE_KEY = (email: string) => `users:email:${email}`;
@@ -373,7 +374,7 @@ export const UserRepository = {
         }
     },
 
-    async getOnlineStatus(id: number): Promise<{ is_online: boolean; last_seen: string | null }> {
+    async getOnlineStatus(id: number): Promise<{ is_online: boolean; last_seen: string | null; duration: { value: number; unit: string; formatted: string } }> {
         const user = await this.findById(id);
         if (!user) throw new Error("Usuario no encontrado");
 
@@ -382,11 +383,18 @@ export const UserRepository = {
         const now = Date.now();
         const isOnline = (now - lastSeenTime) < ONLINE_THRESHOLD;
 
-        logger.debug("Estado online obtenido", { id, is_online: isOnline });
+        let duration = { value: 0, unit: 'second', formatted: '0s' };
+
+        if (user.last_seen) {
+            duration = formatTimeDifference(user.last_seen, new Date());
+        }
+
+        logger.debug("Estado online obtenido", { id, is_online: isOnline, duration: duration.formatted });
 
         return {
             is_online: isOnline,
             last_seen: user.last_seen || null,
+            duration
         };
     },
 };

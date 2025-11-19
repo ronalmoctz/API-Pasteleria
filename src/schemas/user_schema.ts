@@ -60,7 +60,12 @@ export const userStatusSchema = z.object({
     email: z.string(),
     is_online: z.boolean(),
     last_seen: z.string().nullable(),
-    status: z.string()
+    status: z.string(), // Formato: "online 5min", "offline 2d", "nunca conectado"
+    duration: z.object({
+        value: z.number(),
+        unit: z.string(),
+        formatted: z.string()
+    })
 });
 
 export type RegisterUserDTO = z.infer<typeof registerUserSchema>;

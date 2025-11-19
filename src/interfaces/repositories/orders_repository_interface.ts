@@ -8,11 +8,15 @@ import type { CreateOrder, UpdateOrder } from '@/schemas/orders_schema.js';
  */
 export interface IOrdersRepository {
     /**
-     * Creates a new order
-     * @param orderData - Order creation data
+     * Creates a new order with items in a transaction
+     * @param orderData - Order data with calculated total_amount
+     * @param items - Array of order items with product_id, quantity, and price_per_unit
      * @returns Created order
      */
-    create(orderData: CreateOrder): Promise<Order>;
+    createWithItems(
+        orderData: { user_id: number; status_id: number; total_amount: number; special_instructions?: string },
+        items: Array<{ product_id: number; quantity: number; price_per_unit: number }>
+    ): Promise<Order>;
 
     /**
      * Retrieves all orders

@@ -1,6 +1,7 @@
 import { OrdersService } from '@/services/orders_service.js';
 import { OrdersRepository } from '@/repositories/orders_repository.js';
 import { OrderStatusRepository } from '@/repositories/orders_status_reporsitory.js';
+import { ProductRepository } from '@/repositories/products_repository.js';
 import { ProductService } from '@/services/products_service.js';
 import { NodeCacheStrategy } from '@/strategies/node_cache_strategy.js';
 import { logger } from '@/utils/logger.js';
@@ -27,13 +28,15 @@ class ServiceFactory {
 
             // Create repository instances with injected dependencies
             const ordersRepository = new OrdersRepository(this.cacheStrategy);
+            const productRepository = new ProductRepository(this.cacheStrategy);
             // Note: OrderStatusRepository not yet refactored, uses old cache system
             const orderStatusRepository = new OrderStatusRepository();
 
             // Create service with injected repositories
             this.ordersServiceInstance = new OrdersService(
                 ordersRepository,
-                orderStatusRepository
+                orderStatusRepository,
+                productRepository
             );
 
             logger.info('OrdersService initialized successfully');

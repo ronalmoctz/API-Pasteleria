@@ -6,8 +6,8 @@ export const orderStatusSchema = z.object({
 })
 
 export const createOrderStatusSchema = orderStatusSchema.omit({ id: true })
-export const updateOrderStatusScehma = orderStatusSchema.partial()
+export const updateOrderStatusSchema = orderStatusSchema.partial()
 
-export type Orderstatus = z.infer<typeof orderStatusSchema>
+export type OrderStatus = z.infer<typeof orderStatusSchema>
 export type CreateOrderStatus = z.infer<typeof createOrderStatusSchema>
-export type UpdateOrderStatus = z.infer<typeof updateOrderStatusScehma>
+export type UpdateOrderStatus = z.infer<typeof updateOrderStatusSchema>

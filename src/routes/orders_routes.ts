@@ -7,6 +7,7 @@ import {
     getOrderById,
     updateOrder,
     deleteOrder,
+    markOrderAsCompleted,
 } from '@/controllers/orders_controller.js';
 import { authenticateToken, requireAdmin, requireCustomer } from '@/middlewares/auth.js';
 import { apiLimiter } from '@/middlewares/rate_limit.js';
@@ -33,7 +34,8 @@ router.use(apiLimiter);
  *       400:
  *         description: Datos inválidos o conflicto
  */
-router.post('/orders', apiLimiter, authenticateToken, requireAdmin, requireCustomer, createOrder);
+// Both admins and customers can create orders
+router.post('/orders', apiLimiter, authenticateToken, createOrder);
 
 /**
  * @openapi
@@ -70,7 +72,8 @@ router.get('/orders', apiLimiter, authenticateToken, requireAdmin, getAllOrders)
  *       404:
  *         description: Orden no encontrada
  */
-router.get('/orders/:id', authenticateToken, requireAdmin, requireCustomer, getOrderById);
+// Both admins and customers can view orders (controller validates ownership)
+router.get('/orders/:id', authenticateToken, getOrderById);
 
 /**
  * @openapi
@@ -100,7 +103,8 @@ router.get('/orders/:id', authenticateToken, requireAdmin, requireCustomer, getO
  *       404:
  *         description: Orden no encontrada
  */
-router.put('/orders/:id', authenticateToken, requireAdmin, requireCustomer, updateOrder);
+// Both admins and customers can update orders (controller validates ownership)
+router.put('/orders/:id', authenticateToken, updateOrder);
 
 /**
  * @openapi
@@ -122,6 +126,32 @@ router.put('/orders/:id', authenticateToken, requireAdmin, requireCustomer, upda
  *       404:
  *         description: Orden no encontrada
  */
-router.delete('/orders/:id', authenticateToken, requireAdmin, requireCustomer, deleteOrder);
+// Both admins and customers can delete orders (controller validates ownership)
+router.delete('/orders/:id', authenticateToken, deleteOrder);
+
+/**
+ * @openapi
+ * /api/v1/orders/{id}/complete:
+ *   patch:
+ *     tags:
+ *       - Órdenes
+ *     summary: Marcar una orden como completada
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: ID de la orden
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Orden completada exitosamente
+ *       404:
+ *         description: Orden no encontrada
+ *       409:
+ *         description: La orden ya está completada
+ */
+// Only admins can mark orders as completed
+router.patch('/orders/:id/complete', authenticateToken, requireAdmin, markOrderAsCompleted);
 
 export default router;

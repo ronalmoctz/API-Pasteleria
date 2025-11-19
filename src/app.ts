@@ -19,6 +19,7 @@ import ingredientRoutes from '@/routes/ingredients_routes.js'
 import productRoutes from '@/routes/products_routes.js'
 import orderStatusRoutes from '@/routes/orders_status_routes.js'
 import ordersRoutes from '@/routes/orders_routes.js'
+import orderItemsRoutes from '@/routes/order_items_routes.js'
 
 const app = express();
 
@@ -148,6 +149,7 @@ app.use('/api/v1/', ingredientRoutes)
 app.use('/api/v1/', productRoutes)
 app.use('/api/v1/', orderStatusRoutes)
 app.use('/api/v1/', ordersRoutes)
+app.use('/api/v1/', orderItemsRoutes)
 
 setupGraphQl(app)
 

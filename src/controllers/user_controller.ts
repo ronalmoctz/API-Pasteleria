@@ -456,12 +456,20 @@ export async function getUserStatus(req: Request, res: Response, next: NextFunct
             requestId,
             userId,
             is_online: status.is_online,
+            duration_desc: status.status,
             duration: `${duration}ms`
         });
 
         res.status(200).json({
             success: true,
-            data: status,
+            data: {
+                id: status.id,
+                email: status.email,
+                is_online: status.is_online,
+                status: status.status,
+                last_seen: status.last_seen,
+                duration: status.duration
+            },
             message: "User status retrieved successfully"
         });
 
