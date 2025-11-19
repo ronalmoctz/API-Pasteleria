@@ -34,17 +34,21 @@ API para una pastelería, desarrollada con buenas prácticas, arquitectura repos
 ## 📁 Estructura del proyecto
 ```
 src/
-  config/           # Configuración general
+  base/             # Clases base reutilizables (BaseRepository)
+  config/           # Configuración general (DB, Swagger, GraphQL)
   constants/        # Constantes globales
   controllers/      # Controladores de rutas
+  errors/           # Manejo de errores personalizado
+  factories/        # Service Factory (Dependency Injection)
   graphql/          # Esquemas y resolvers GraphQL
-  interfaces/       # Interfaces TypeScript
-  middlewares/      # Middlewares de Express
-  repositories/     # Acceso a datos
-  routes/           # Definición de rutas
-  schemas/          # Validaciones y esquemas
+  interfaces/       # Interfaces TypeScript y contratos de repositories
+  middlewares/      # Middlewares de Express (auth, rate limit)
+  repositories/     # Acceso a datos con cachéo
+  routes/           # Definición de rutas REST
+  schemas/          # Validaciones Zod
   services/         # Lógica de negocio
-  utils/            # Utilidades generales
+  strategies/       # Estrategias de cachéo (NodeCache)
+  utils/            # Utilidades generales (logger, errors)
 ```
 
 ## 🛠️ Scripts útiles
@@ -87,8 +91,10 @@ La API expone endpoints RESTful y un endpoint GraphQL, todos documentados y acce
 | REST      | `/api/v1/categories`            | Gestión de categorías                       |
 | REST      | `/api/v1/ingredients`           | Gestión de ingredientes                     |
 | REST      | `/api/v1/products`              | Gestión de productos                        |
-| REST      | `/api/v1/order-status`          | Estados de órdenes                          |
-| REST      | `/api/v1/orders`                | Gestión de órdenes                          |
+| REST      | `/api/v1/order-statuses`        | Estados de órdenes                          |
+| REST      | `/api/v1/orders`                | Gestión de órdenes con items                |
+| REST      | `/api/v1/orders/:id/complete`   | Marcar orden como completada (admin)        |
+| REST      | `/api/v1/order-items`           | Gestión de items individuales de órdenes    |
 | REST      | `/api/`                         | Autenticación y usuarios                    |
 | GraphQL   | `/graphql`                      | Consultas y mutaciones flexibles            |
 
