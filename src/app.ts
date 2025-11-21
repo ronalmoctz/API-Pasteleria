@@ -29,7 +29,7 @@ app.use(timeout('5s', { respond: true }));
 app.use(cors({
     origin: [
         'http://localhost:4200',
-        'http://localhost:3000',
+        'https://pasteleria-web.vercel.app',
         'http://localhost:5173',
         ENV.API_BASE_URL || 'http://localhost:4200'
     ],
